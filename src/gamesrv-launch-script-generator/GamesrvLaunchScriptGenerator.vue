@@ -56,10 +56,7 @@
                 ></span>
                 正在加载 {{ selectedRepo?.name ?? "" }} 的 info.json…
             </div>
-            <div
-                v-else-if="loadError"
-                class="rounded-md border border-red-200 bg-red-50 p-4"
-            >
+            <div v-else-if="loadError" class="rounded-md border border-red-200 bg-red-50 p-4">
                 <p class="text-sm font-semibold text-red-600">加载失败：{{ loadError }}</p>
                 <button
                     class="mt-2 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-600 hover:text-white hover:border-red-600"
@@ -78,7 +75,9 @@
             <template v-else>
                 <div class="mb-4 grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">实例序号</label>
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
+                            >实例序号</label
+                        >
                         <input
                             v-model.number="config.instance"
                             type="number"
@@ -90,7 +89,9 @@
                         </p>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">容器名</label>
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
+                            >容器名</label
+                        >
                         <input
                             v-model="config.containerName"
                             class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
@@ -99,8 +100,15 @@
                 </div>
 
                 <div class="mb-4 flex items-center gap-2">
-                    <input id="prefetch" v-model="config.prefetch" type="checkbox" class="h-4 w-4" />
-                    <label for="prefetch" class="text-sm font-semibold text-gray-600">预取阿里云镜像</label>
+                    <input
+                        id="prefetch"
+                        v-model="config.prefetch"
+                        type="checkbox"
+                        class="h-4 w-4"
+                    />
+                    <label for="prefetch" class="text-sm font-semibold text-gray-600"
+                        >预取阿里云镜像</label
+                    >
                 </div>
 
                 <h3 class="text-base font-semibold my-4 text-gray-600">端口</h3>
@@ -237,7 +245,9 @@
                         placeholder="值"
                         class="flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
                     />
-                    <label class="flex shrink-0 items-center gap-1 text-xs font-semibold text-gray-500">
+                    <label
+                        class="flex shrink-0 items-center gap-1 text-xs font-semibold text-gray-500"
+                    >
                         <input v-model="row.secret" type="checkbox" class="h-4 w-4" />
                         敏感
                     </label>
@@ -302,8 +312,7 @@
             <pre
                 v-if="generatedScript"
                 class="bg-white p-5 rounded-lg border border-gray-200 font-mono text-sm leading-relaxed overflow-x-auto grow whitespace-pre-wrap break-words shadow-inner"
-                >{{ generatedScript }}</pre
-            >
+                >{{ generatedScript }}</pre>
             <div
                 v-else
                 class="flex grow items-center justify-center rounded-lg border border-dashed border-gray-300 text-sm text-gray-400"
@@ -384,21 +393,6 @@ const activeResources = computed<FlavorResources | null>(() => {
     if (!info || !variant) return null;
     return mergeResources(info.resources, variant.resources);
 });
-
-const applyRequiredFlags = (resources: FlavorResources) => {
-    const portRequired = new Map(
-        resources.ports.map((port) => [`${port.container}:${port.proto}`, port.required]),
-    );
-    const volumeRequired = new Map(
-        resources.volumes.map((volume) => [volume.container, volume.required]),
-    );
-    for (const row of config.ports) {
-        row.required = portRequired.get(`${row.container}:${row.proto}`) ?? false;
-    }
-    for (const row of config.volumes) {
-        row.required = volumeRequired.get(row.container) ?? false;
-    }
-};
 
 const applyVariant = (info: GameInfo, variant: Variant) => {
     const resources = mergeResources(info.resources, variant.resources);
@@ -562,7 +556,7 @@ const generatedScript = computed(() => {
             `    for spec in ${portSpecs.map((spec) => `"${spec}"`).join(" ")}; do`,
             '        port="${spec%/*}"',
             '        proto="${spec#*/}"',
-            '        if ss -l"${proto:0:1}n" | awk \'{print $4}\' | sed \'s/.*://\' | grep -qx "$port"; then',
+            "        if ss -l\"${proto:0:1}n\" | awk '{print $4}' | sed 's/.*://' | grep -qx \"$port\"; then",
             '            echo "[启动] 端口 $port/$proto 已被占用" >&2',
             "            exit 1",
             "        fi",
@@ -594,7 +588,8 @@ const generatedScript = computed(() => {
     for (const row of config.ports) {
         if (!row.host || !row.container) continue;
         const hostNumber = Number(row.host);
-        const host = inst > 1 && Number.isFinite(hostNumber) ? String(hostNumber + inst - 1) : row.host;
+        const host =
+            inst > 1 && Number.isFinite(hostNumber) ? String(hostNumber + inst - 1) : row.host;
         run.push(`    -p ${host}:${row.container}/${row.proto}`);
     }
 
@@ -608,7 +603,7 @@ const generatedScript = computed(() => {
         const name = row.name.trim();
         if (!name) continue;
         if (row.secret) {
-            run.push(`    -e ${name}="\${${name}:?未设置 ${name} 环境变量}"`);
+            run.push(`    -e ${name}="\${${name}:}"`);
         } else if (row.value !== "") {
             run.push(`    -e ${name}=${row.value}`);
         }
