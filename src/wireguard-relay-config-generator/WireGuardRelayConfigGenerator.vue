@@ -189,58 +189,90 @@
                 </button>
             </div>
             <div
-                class="border border-gray-200 p-5 rounded-lg mb-4 bg-white shadow-sm"
+                class="relative mb-4 overflow-hidden rounded-lg border border-gray-200 p-5 pr-17 shadow-sm transition-colors"
+                :class="[
+                    PEER_BACKGROUND_COLORS[index % PEER_BACKGROUND_COLORS.length] ?? 'bg-white',
+                    draggedPeerIndex === index ? 'opacity-60' : '',
+                    draggedPeerIndex !== null &&
+                    draggedPeerIndex !== index &&
+                    dropTargetIndex === index
+                        ? 'ring-2 ring-sky-300'
+                        : '',
+                ]"
                 v-for="(peer, index) in config.peers"
                 :key="peer.id"
+                @dragover.prevent="onPeerDragOver(index, $event)"
+                @drop="onPeerDrop(index, $event)"
             >
                 <div
-                    class="group mb-4 flex cursor-pointer items-center justify-between gap-3 border-b border-dashed border-gray-200 pb-2.5 transition-colors hover:border-sky-300 hover:bg-sky-50/40"
+                    class="group -mx-5 -mt-5 mb-4 flex cursor-pointer items-center justify-between gap-3 border-b border-dashed border-gray-200 px-5 pb-2.5 pt-5 transition-colors hover:border-sky-300 hover:bg-sky-100"
                     role="button"
                     tabindex="0"
                     @click="peer.expanded = !peer.expanded"
                     @keydown.enter.prevent="peer.expanded = !peer.expanded"
                     @keydown.space.prevent="peer.expanded = !peer.expanded"
                 >
-                    <span class="min-w-0 text-sm font-semibold text-gray-600 transition-colors group-hover:text-gray-800">
-                        {{ peer.name.trim() ? peer.name.trim() : `节点 #${index + 1}` }}
+                    <span class="flex min-w-0 items-center gap-1.5">
+                        <span
+                            class="shrink-0 cursor-grab rounded p-1 text-gray-400 transition-colors hover:bg-gray-200/70 hover:text-gray-600"
+                            title="拖动调整节点顺序"
+                            :draggable="true"
+                            @dragstart="onPeerDragStart(index, $event)"
+                            @dragend="onPeerDragEnd"
+                            @click.stop
+                        >
+                            <svg viewBox="0 0 20 20" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+                                <circle cx="6.5" cy="4" r="1.2" />
+                                <circle cx="13.5" cy="4" r="1.2" />
+                                <circle cx="6.5" cy="10" r="1.2" />
+                                <circle cx="13.5" cy="10" r="1.2" />
+                                <circle cx="6.5" cy="16" r="1.2" />
+                                <circle cx="13.5" cy="16" r="1.2" />
+                            </svg>
+                        </span>
+                        <span class="min-w-0 text-sm font-semibold text-gray-600 transition-colors group-hover:text-gray-800">
+                            {{ peer.name.trim() ? peer.name.trim() : `节点 #${index + 1}` }}
+                        </span>
                     </span>
-                    <button
-                        class="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
-                        type="button"
-                        @click.stop="peer.expanded = !peer.expanded"
-                        aria-label="切换节点展开状态"
-                    >
-                        <svg
-                            v-if="peer.expanded"
-                            viewBox="0 0 20 20"
-                            class="h-4 w-4"
-                            fill="none"
-                            aria-hidden="true"
+                    <span class="flex shrink-0 items-center gap-1">
+                        <button
+                            class="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
+                            type="button"
+                            @click.stop="peer.expanded = !peer.expanded"
+                            aria-label="切换节点展开状态"
                         >
-                            <path
-                                d="M5 12l5-5 5 5"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                        <svg
-                            v-else
-                            viewBox="0 0 20 20"
-                            class="h-4 w-4"
-                            fill="none"
-                            aria-hidden="true"
-                        >
-                            <path
-                                d="M5 8l5 5 5-5"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </button>
+                            <svg
+                                v-if="peer.expanded"
+                                viewBox="0 0 20 20"
+                                class="h-4 w-4"
+                                fill="none"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M5 12l5-5 5 5"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                            <svg
+                                v-else
+                                viewBox="0 0 20 20"
+                                class="h-4 w-4"
+                                fill="none"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M5 8l5 5 5-5"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                        </button>
+                    </span>
                 </div>
 
                 <div v-if="peer.expanded">
@@ -348,6 +380,61 @@
                         删除此节点
                     </button>
                 </div>
+                <div
+                    class="absolute inset-y-0 right-0 flex w-12 flex-col border-l border-gray-200 bg-gray-200/40"
+                    role="group"
+                    aria-label="调整节点顺序"
+                >
+                    <span
+                        class="flex w-full items-center justify-center text-xs font-semibold leading-none text-gray-500"
+                        style="flex: 1 1 0%"
+                        aria-label="节点序号"
+                    >
+                        {{ index + 1 }}
+                    </span>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center justify-center text-gray-400 transition-colors hover:bg-gray-300/60 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                        style="flex: 2 2 0%"
+                        :disabled="index === 0"
+                        :aria-label="`上移节点 ${peer.name.trim() || index + 1}`"
+                        title="上移"
+                        @click.stop="movePeer(index, index - 1)"
+                        @keydown.enter.stop
+                        @keydown.space.stop
+                    >
+                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                            <path
+                                d="M5 12l5-5 5 5"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center justify-center text-gray-400 transition-colors hover:bg-gray-300/60 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300"
+                        style="flex: 2 2 0%"
+                        :disabled="index === config.peers.length - 1"
+                        :aria-label="`下移节点 ${peer.name.trim() || index + 1}`"
+                        title="下移"
+                        @click.stop="movePeer(index, index + 1)"
+                        @keydown.enter.stop
+                        @keydown.space.stop
+                    >
+                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                            <path
+                                d="M5 8l5 5 5-5"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <button
@@ -413,6 +500,11 @@ interface WgConfig {
     peers: Peer[];
 }
 
+const PEER_BACKGROUND_COLORS = [
+    "bg-white",
+    "bg-gray-100",
+] as const;
+
 const STORAGE_KEY = "hm-tools.wireguard-config-generator";
 
 const createDefaultConfig = (): WgConfig => ({
@@ -450,6 +542,8 @@ const decodeBase64 = (str: string): Uint8Array | null => {
 
 const config = reactive<WgConfig>(createDefaultConfig());
 const showInterfacePrivateKey = ref(false);
+const draggedPeerIndex = ref<number | null>(null);
+const dropTargetIndex = ref<number | null>(null);
 
 let peerIdCounter = 0;
 
@@ -570,6 +664,50 @@ const addPeer = () => {
     });
 };
 const removePeer = (index: number) => config.peers.splice(index, 1);
+
+const movePeer = (from: number, to: number) => {
+    const peerCount = config.peers.length;
+    const target = Math.max(0, Math.min(peerCount - 1, to));
+    if (peerCount < 2 || from === target) return;
+
+    const [movedPeer] = config.peers.splice(from, 1);
+    if (movedPeer) {
+        config.peers.splice(target, 0, movedPeer);
+    }
+};
+
+const onPeerDragStart = (index: number, event: DragEvent) => {
+    draggedPeerIndex.value = index;
+    dropTargetIndex.value = index;
+
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", index.toString());
+    }
+};
+
+const onPeerDragOver = (index: number, event: DragEvent) => {
+    if (draggedPeerIndex.value === null) return;
+
+    event.preventDefault();
+    dropTargetIndex.value = index;
+};
+
+const onPeerDrop = (index: number, event: DragEvent) => {
+    const from = draggedPeerIndex.value;
+    if (from !== null) {
+        event.preventDefault();
+        movePeer(from, index);
+    }
+
+    draggedPeerIndex.value = null;
+    dropTargetIndex.value = null;
+};
+
+const onPeerDragEnd = () => {
+    draggedPeerIndex.value = null;
+    dropTargetIndex.value = null;
+};
 
 const regenerateAllPeerKeys = () => {
     config.peers.forEach((peer) => {
