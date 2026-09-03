@@ -3,12 +3,29 @@
         <div class="w-1/2 p-8 overflow-y-auto border-r border-gray-200 box-border">
             <div class="mb-4 flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
                 <h2 class="mt-0 text-xl font-semibold">WireGuard 接口配置 (Interface)</h2>
-                <button
-                    class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
-                    @click="resetConfig"
-                >
-                    重置
-                </button>
+                <div class="flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-500 hover:text-gray-900"
+                        @click="openImportFilePicker"
+                    >
+                        导入
+                    </button>
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                        @click="resetConfig"
+                    >
+                        重置
+                    </button>
+                    <input
+                        ref="importFileInputRef"
+                        type="file"
+                        accept=".zip,application/zip,application/x-zip-compressed"
+                        class="hidden"
+                        @change="handleImportFile"
+                    />
+                </div>
             </div>
 
             <div class="mb-4">
@@ -366,6 +383,14 @@
 
                 <div class="mt-4 flex justify-end gap-2">
                     <button
+                        class="px-3 py-1.5 text-gray-700 border border-gray-300 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-gray-800 hover:text-white hover:border-gray-800"
+                        type="button"
+                        title="复制该节点的 [Peer] 配置，粘贴到中继服务器的 wg0.conf"
+                        @click="copyRelayPeerBlock(peer)"
+                    >
+                        复制中继配置
+                    </button>
+                    <button
                         class="px-3 py-1.5 text-sky-700 border border-sky-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-sky-700 hover:text-white hover:border-sky-700"
                         type="button"
                         @click="copyClientConfig(peer)"
@@ -500,6 +525,12 @@ interface WgConfig {
     peers: Peer[];
 }
 
+interface IniSection {
+    name: string;
+    pairs: Record<string, string[]>;
+    comments: string[];
+}
+
 const PEER_BACKGROUND_COLORS = [
     "bg-white",
     "bg-gray-100",
@@ -544,11 +575,36 @@ const config = reactive<WgConfig>(createDefaultConfig());
 const showInterfacePrivateKey = ref(false);
 const draggedPeerIndex = ref<number | null>(null);
 const dropTargetIndex = ref<number | null>(null);
+const importFileInputRef = ref<HTMLInputElement | null>(null);
 
 let peerIdCounter = 0;
 
 const saveConfig = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+};
+
+const normalizeSavedConfig = (savedConfig: Partial<WgConfig>): WgConfig => {
+    const merged = { ...createDefaultConfig(), ...savedConfig };
+
+    if (typeof merged.host === "string" && merged.host.endsWith("/24")) {
+        merged.host = merged.host.slice(0, -3);
+    }
+
+    const savedPeers = Array.isArray(savedConfig.peers) ? savedConfig.peers : [];
+    merged.peers = savedPeers.map((peer, index) => ({
+        id: typeof peer.id === "number" ? peer.id : index,
+        name: typeof peer.name === "string" ? peer.name : "",
+        privateKey: typeof peer.privateKey === "string" ? peer.privateKey : "",
+        publicKey: typeof peer.publicKey === "string" ? peer.publicKey : "",
+        hostPart: typeof peer.hostPart === "number" && Number.isFinite(peer.hostPart) ? peer.hostPart : null,
+        expanded: typeof peer.expanded === "boolean" ? peer.expanded : true,
+        showPrivateKey: typeof peer.showPrivateKey === "boolean" ? peer.showPrivateKey : false,
+    }));
+
+    peerIdCounter = merged.peers.reduce((maxId, peer) => Math.max(maxId, peer.id + 1), 0);
+    merged.peers.forEach((peer) => ensurePeerKeyPair(peer));
+
+    return merged;
 };
 
 const loadConfig = () => {
@@ -557,24 +613,7 @@ const loadConfig = () => {
 
     try {
         const savedConfig = JSON.parse(rawConfig) as Partial<WgConfig>;
-        Object.assign(config, createDefaultConfig(), savedConfig);
-
-        if (typeof config.host === "string" && config.host.endsWith("/24")) {
-            config.host = config.host.slice(0, -3);
-        }
-
-        config.peers = config.peers.map((peer, index) => ({
-            id: typeof peer.id === "number" ? peer.id : index,
-            name: typeof peer.name === "string" ? peer.name : "",
-            privateKey: typeof peer.privateKey === "string" ? peer.privateKey : "",
-            publicKey: typeof peer.publicKey === "string" ? peer.publicKey : "",
-            hostPart: typeof peer.hostPart === "number" && Number.isFinite(peer.hostPart) ? peer.hostPart : null,
-            expanded: typeof peer.expanded === "boolean" ? peer.expanded : true,
-            showPrivateKey: typeof peer.showPrivateKey === "boolean" ? peer.showPrivateKey : false,
-        }));
-
-        peerIdCounter = config.peers.reduce((maxId, peer) => Math.max(maxId, peer.id + 1), 0);
-        config.peers.forEach((peer) => ensurePeerKeyPair(peer));
+        Object.assign(config, normalizeSavedConfig(savedConfig));
     } catch (error) {
         console.error(error);
     }
@@ -653,7 +692,7 @@ const addPostDown = () => config.postDown.push("");
 const removePostDown = (index: number) => config.postDown.splice(index, 1);
 
 const addPeer = () => {
-    config.peers.push({
+    const peer: Peer = {
         id: peerIdCounter++,
         name: "",
         privateKey: "",
@@ -661,7 +700,9 @@ const addPeer = () => {
         hostPart: null,
         expanded: true,
         showPrivateKey: false,
-    });
+    };
+    generatePeerKeys(peer);
+    config.peers.push(peer);
 };
 const removePeer = (index: number) => config.peers.splice(index, 1);
 
@@ -815,11 +856,201 @@ const buildClientConfig = (peer: Peer): string => {
         `AllowedIPs = ${peerNetworkPrefix}.0/24`,
         `Endpoint = ${relayEndpoint}`,
         "PersistentKeepalive = 25",
-    ].join("\n");
+    ].join("\n") + "\n";
 };
 
 const copyClientConfig = async (peer: Peer) => {
     await navigator.clipboard.writeText(buildClientConfig(peer));
+};
+
+const buildRelayPeerBlock = (peer: Peer): string => {
+    const hostBase = getHostBase(config.host);
+    const peerNetworkPrefix = getPeerNetworkPrefix(hostBase);
+    const hostPart = typeof peer.hostPart === "number" ? peer.hostPart : null;
+    const lines: string[] = [];
+
+    if (peer.name.trim()) lines.push(`# ${peer.name.trim()}`);
+    if (peer.publicKey.trim()) lines.push(`PublicKey = ${peer.publicKey.trim()}`);
+    if (hostPart !== null) lines.push(`AllowedIPs = ${peerNetworkPrefix}.${hostPart}/32`);
+
+    if (!lines.length) return "";
+    return `[Peer]\n${lines.join("\n")}`;
+};
+
+const copyRelayPeerBlock = async (peer: Peer) => {
+    ensurePeerKeyPair(peer);
+    const peerBlock = buildRelayPeerBlock(peer);
+    if (!peerBlock) return;
+    await navigator.clipboard.writeText(peerBlock);
+};
+
+const parseIniText = (text: string): IniSection[] => {
+    const sections: IniSection[] = [];
+    let current: IniSection | null = null;
+
+    for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        const sectionMatch = line.match(/^\[([^\]]+)\]$/);
+        if (sectionMatch) {
+            current = { name: sectionMatch[1]!.trim(), pairs: {}, comments: [] };
+            sections.push(current);
+            continue;
+        }
+
+        if (!current) continue;
+
+        if (line.startsWith("#")) {
+            current.comments.push(line.slice(1).trim());
+            continue;
+        }
+
+        const eqIndex = line.indexOf("=");
+        if (eqIndex === -1) continue;
+
+        const key = line.slice(0, eqIndex).trim();
+        const value = line.slice(eqIndex + 1).trim();
+        if (!current.pairs[key]) current.pairs[key] = [];
+        current.pairs[key]!.push(value);
+    }
+
+    return sections;
+};
+
+const parseOptionalInt = (value: string | undefined): number | null => {
+    if (!value) return null;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) ? parsed : null;
+};
+
+const getLastIpOctet = (address: string): number | null => {
+    const parts = address.trim().split("/")[0]!.split(".");
+    const last = parts[parts.length - 1];
+    if (!last) return null;
+
+    const parsed = Number(last);
+    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 255 ? parsed : null;
+};
+
+const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | null> => {
+    const wg0File = zip.file("wg0.conf");
+    if (!wg0File) return null;
+
+    const sections = parseIniText(await wg0File.async("string"));
+    const interfaceSection = sections.find((section) => section.name === "Interface");
+    const peerSections = sections.filter((section) => section.name === "Peer");
+    const imported: Partial<WgConfig> = {};
+
+    if (interfaceSection) {
+        const pairs = interfaceSection.pairs;
+        const address = pairs.Address?.[0] ?? "";
+
+        if (address) imported.host = getHostBase(address);
+        imported.port = parseOptionalInt(pairs.ListenPort?.[0]);
+        imported.mtu = parseOptionalInt(pairs.MTU?.[0]);
+        imported.privateKey = pairs.PrivateKey?.[0] ?? "";
+        imported.postUp = pairs.PostUp ?? [];
+        imported.postDown = pairs.PostDown ?? [];
+        imported.relayServer =
+            interfaceSection.comments.find((comment) => !comment.startsWith("PublicKey =")) ?? "";
+    }
+
+    const wgPeerInfos = peerSections.map((section) => ({
+        name: section.comments.find((comment) => !comment.startsWith("PublicKey =")) ?? "",
+        publicKey: section.pairs.PublicKey?.[0] ?? "",
+        hostPart: getLastIpOctet(section.pairs.AllowedIPs?.[0] ?? ""),
+    }));
+
+    const clientsByPublicKey = new Map<string, Peer>();
+    const clientFiles = zip.file(/^peers\/.+\.conf$/i);
+    for (const clientFile of clientFiles) {
+        const clientSections = parseIniText(await clientFile.async("string"));
+        const clientInterface = clientSections.find((section) => section.name === "Interface");
+        if (!clientInterface) continue;
+
+        const privateKey = clientInterface.pairs.PrivateKey?.[0] ?? "";
+        if (!privateKey.trim()) continue;
+
+        const clientPeer: Peer = {
+            id: 0,
+            name: "",
+            privateKey,
+            publicKey: "",
+            hostPart: getLastIpOctet(clientInterface.pairs.Address?.[0] ?? ""),
+            expanded: true,
+            showPrivateKey: false,
+        };
+        ensurePeerKeyPair(clientPeer);
+        clientsByPublicKey.set(clientPeer.publicKey, clientPeer);
+    }
+
+    let importedPeers: Peer[] = wgPeerInfos.map((wgPeerInfo, index) => {
+        const clientPeer = wgPeerInfo.publicKey
+            ? clientsByPublicKey.get(wgPeerInfo.publicKey)
+            : undefined;
+
+        return {
+            id: index,
+            name: wgPeerInfo.name,
+            privateKey: clientPeer?.privateKey ?? "",
+            publicKey: wgPeerInfo.publicKey || clientPeer?.publicKey || "",
+            hostPart: wgPeerInfo.hostPart ?? clientPeer?.hostPart ?? null,
+            expanded: true,
+            showPrivateKey: false,
+        };
+    });
+
+    if (importedPeers.length === 0) {
+        importedPeers = [...clientsByPublicKey.values()].map((clientPeer, index) => ({
+            id: index,
+            name: "",
+            privateKey: clientPeer.privateKey,
+            publicKey: clientPeer.publicKey,
+            hostPart: clientPeer.hostPart,
+            expanded: true,
+            showPrivateKey: false,
+        }));
+    }
+
+    imported.peers = importedPeers;
+    return imported;
+};
+
+const openImportFilePicker = () => {
+    importFileInputRef.value?.click();
+};
+
+const handleImportFile = async (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+
+    try {
+        const zip = await JSZip.loadAsync(file);
+        const importedConfig = await parseImportedConfigZip(zip);
+        if (!importedConfig) {
+            alert("导入失败：压缩包中未找到 wg0.conf，无法识别为配置包。");
+            return;
+        }
+
+        const normalized = normalizeSavedConfig(importedConfig);
+        Object.assign(config, normalized);
+        config.peers.forEach((peer) => {
+            peer.expanded = false;
+        });
+
+        if (!config.privateKey) {
+            generateKeys();
+        } else if (!config.publicKey) {
+            derivePublicKey();
+        }
+        saveConfig();
+    } catch (error) {
+        console.error(error);
+        alert("导入失败：文件不是有效的配置包或已损坏。");
+    }
 };
 
 const generatedConfig = computed(() => {
@@ -842,12 +1073,8 @@ const generatedConfig = computed(() => {
     });
 
     config.peers.forEach((peer) => {
-        const hostPart = typeof peer.hostPart === "number" ? peer.hostPart : null;
-        if (!peer.publicKey.trim() && hostPart === null) return;
-        conf += `\n[Peer]\n`;
-        if (peer.name.trim()) conf += `# ${peer.name.trim()}\n`;
-        if (peer.publicKey.trim()) conf += `PublicKey = ${peer.publicKey.trim()}\n`;
-        if (hostPart !== null) conf += `AllowedIPs = ${peerNetworkPrefix}.${hostPart}/32\n`;
+        const peerBlock = buildRelayPeerBlock(peer);
+        if (peerBlock) conf += `\n${peerBlock}\n`;
     });
     return conf;
 });
