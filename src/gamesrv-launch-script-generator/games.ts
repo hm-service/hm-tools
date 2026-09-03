@@ -53,10 +53,13 @@ export interface GameInfo {
     variants: Variant[];
 }
 
-export interface GameRepo {
-    key: string;
-    name: string;
-    url: string;
+export interface ParsedRepoUrl {
+    /** 规范化后的仓库地址（用于历史记录与展示） */
+    canonicalUrl: string;
+    /** owner/repo 路径（用于加载提示） */
+    repoPath: string;
+    /** 按顺序尝试的 info.json raw 地址 */
+    rawCandidates: string[];
 }
 
 export const DEFAULT_REGISTRIES = {
@@ -64,63 +67,69 @@ export const DEFAULT_REGISTRIES = {
     aliyun: "crpi-i9e7zrpnu4792a5m.cn-chengdu.personal.cr.aliyuncs.com/hiromuraki",
 };
 
-export const gameRepos: GameRepo[] = [
-    {
-        key: "counter-strike",
-        name: "Counter-Strike 1.6 / CS:CZ",
-        url: "https://github.com/hm-gamesrv/counter-strike",
-    },
-    {
-        key: "counter-strike-online-2",
-        name: "Counter-Strike: Online 2",
-        url: "https://github.com/hm-gamesrv/counter-strike-online-2",
-    },
-    {
-        key: "counter-strike-source",
-        name: "Counter-Strike: Source",
-        url: "https://github.com/hm-gamesrv/counter-strike-source",
-    },
-    {
-        key: "counter-strike-global-offensive",
-        name: "Counter-Strike: Global Offensive",
-        url: "https://github.com/hm-gamesrv/counter-strike-global-offensive",
-    },
-    {
-        key: "left-4-dead-2",
-        name: "Left 4 Dead 2",
-        url: "https://github.com/hm-gamesrv/left-4-dead-2",
-    },
-    {
-        key: "minecraft-casual",
-        name: "Minecraft Casual",
-        url: "https://github.com/hm-gamesrv/minecraft-casual",
-    },
-    {
-        key: "minecraft-gtnh",
-        name: "Minecraft GTNH",
-        url: "https://github.com/hm-gamesrv/minecraft-gtnh",
-    },
-    {
-        key: "project-zomboid",
-        name: "Project Zomboid",
-        url: "https://github.com/hm-gamesrv/project-zomboid",
-    },
-    {
-        key: "terraria",
-        name: "Terraria",
-        url: "https://github.com/hm-gamesrv/terraria",
-    },
-    {
-        key: "warfork",
-        name: "Warfork",
-        url: "https://github.com/hm-gamesrv/warfork",
-    },
-];
+const RAW_INFO_URL_PATTERN =
+    /^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/info\.json$/i;
+const GITHUB_WEB_URL_PATTERN =
+    /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^/?#]+))?(?:\/.*)?$/i;
+const GITHUB_SSH_URL_PATTERN = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i;
+const OWNER_REPO_PATTERN = /^([A-Za-z0-9][A-Za-z0-9._-]*)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/;
 
-export const toRawInfoUrl = (repoUrl: string): string => {
-    const match = repoUrl.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/?$/);
-    if (!match) throw new Error(`无法解析仓库地址: ${repoUrl}`);
-    return `https://raw.githubusercontent.com/${match[1]}/${match[2]}/main/info.json`;
+export const parseRepoUrl = (input: string): ParsedRepoUrl => {
+    const value = input.trim().replace(/\/+$/, "");
+    if (!value) throw new Error("请输入仓库地址");
+
+    const rawMatch = value.match(RAW_INFO_URL_PATTERN);
+    if (rawMatch) {
+        const repoPath = `${rawMatch[1]}/${rawMatch[2]}`;
+        return {
+            canonicalUrl: value,
+            repoPath,
+            rawCandidates: [value],
+        };
+    }
+
+    let owner = "";
+    let repo = "";
+    let branch = "";
+
+    const sshMatch = value.match(GITHUB_SSH_URL_PATTERN);
+    if (sshMatch) {
+        owner = sshMatch[1]!;
+        repo = sshMatch[2]!;
+    } else {
+        const webMatch = value.match(GITHUB_WEB_URL_PATTERN);
+        if (webMatch) {
+            owner = webMatch[1]!;
+            repo = webMatch[2]!;
+            branch = webMatch[3] ?? "";
+        } else {
+            const shortMatch = value.match(OWNER_REPO_PATTERN);
+            if (shortMatch) {
+                owner = shortMatch[1]!;
+                repo = shortMatch[2]!;
+            }
+        }
+    }
+
+    if (!owner || !repo) {
+        throw new Error(
+            "无法解析仓库地址，请输入 GitHub 仓库地址，例如 https://github.com/hm-gamesrv/counter-strike、" +
+                "owner/repo、git@github.com:owner/repo.git，或 info.json 的 raw 地址",
+        );
+    }
+
+    const repoPath = `${owner}/${repo}`;
+    const canonicalUrl = branch
+        ? `https://github.com/${repoPath}/tree/${branch}`
+        : `https://github.com/${repoPath}`;
+    const rawCandidates = branch
+        ? [`https://raw.githubusercontent.com/${repoPath}/${branch}/info.json`]
+        : [
+              `https://raw.githubusercontent.com/${repoPath}/main/info.json`,
+              `https://raw.githubusercontent.com/${repoPath}/master/info.json`,
+          ];
+
+    return { canonicalUrl, repoPath, rawCandidates };
 };
 
 export const normalizeRegistry = (base: string | undefined, fallback: string): string =>

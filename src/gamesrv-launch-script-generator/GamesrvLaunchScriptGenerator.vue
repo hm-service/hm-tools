@@ -14,37 +14,87 @@
                 </button>
             </div>
 
-            <div class="mb-4 grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-semibold mb-1.5 text-gray-600">游戏</label>
-                    <select
-                        v-model="config.selectedGameKey"
-                        @change="onGameChange"
-                        class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm transition-colors focus:outline-none focus:border-black"
+            <div class="mb-4">
+                <div class="mb-1.5 flex items-center justify-between gap-3">
+                    <label class="block text-sm font-semibold text-gray-600">仓库地址</label>
+                    <button
+                        v-if="repoHistory.length > 0 && !loading"
+                        type="button"
+                        class="shrink-0 text-xs font-semibold text-gray-400 transition-colors hover:text-red-600"
+                        @click="clearRepoHistory"
                     >
-                        <option value="">请选择游戏</option>
-                        <option v-for="repo in gameRepos" :key="repo.key" :value="repo.key">
-                            {{ repo.name }}
-                        </option>
-                    </select>
+                        清除历史
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold mb-1.5 text-gray-600">变体</label>
-                    <select
-                        v-model="config.selectedFlavorKey"
-                        @change="onVariantChange"
-                        :disabled="!loadedInfo"
-                        class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm transition-colors focus:outline-none focus:border-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-                    >
-                        <option
-                            v-for="variant in loadedInfo?.variants ?? []"
-                            :key="variant.key"
-                            :value="variant.key"
+                <div class="relative">
+                    <div class="flex items-stretch gap-2">
+                        <div class="relative min-w-0 flex-1">
+                            <input
+                                v-model="repoInput"
+                                type="text"
+                                autocomplete="off"
+                                :disabled="loading"
+                                placeholder="https://github.com/hm-gamesrv/counter-strike"
+                                class="w-full p-2.5 pr-9 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                                @focus="openRepoDropdown"
+                                @input="onRepoInput"
+                                @keydown.down.prevent="moveRepoHighlight(1)"
+                                @keydown.up.prevent="moveRepoHighlight(-1)"
+                                @keydown.enter.prevent="onRepoEnter"
+                                @keydown.escape="closeRepoDropdown"
+                                @blur="closeRepoDropdown"
+                            />
+                            <button
+                                v-if="repoHistory.length > 0 && !loading"
+                                type="button"
+                                :aria-label="repoDropdownOpen ? '收起输入历史' : '展开输入历史'"
+                                class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors cursor-pointer hover:bg-gray-100 hover:text-gray-600"
+                                @mousedown.prevent
+                                @click="toggleRepoDropdown"
+                            >
+                                <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z"
+                                        clip-rule="evenodd"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            :disabled="loading || !repoInput.trim()"
+                            class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-sky-600 disabled:hover:bg-sky-600"
+                            @click="submitRepo"
                         >
-                            {{ variant.name }}
-                        </option>
-                    </select>
+                            {{ loading ? "加载中…" : "加载" }}
+                        </button>
+                    </div>
+                    <ul
+                        v-if="repoDropdownOpen && repoOptions.length > 0"
+                        class="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+                    >
+                        <li
+                            v-for="(url, index) in repoOptions"
+                            :key="url"
+                            :title="url"
+                            class="cursor-pointer truncate rounded px-2.5 py-2 font-mono text-xs transition-colors"
+                            :class="
+                                index === repoHighlightIndex
+                                    ? 'bg-sky-600 text-white'
+                                    : 'text-gray-700 hover:bg-gray-100'
+                            "
+                            @mousedown.prevent
+                            @mouseenter="repoHighlightIndex = index"
+                            @click="selectRepoOption(url)"
+                        >
+                            {{ url }}
+                        </li>
+                    </ul>
                 </div>
+                <p class="mt-1.5 text-xs text-gray-400">
+                    支持 GitHub 仓库地址（如 https://github.com/hm-gamesrv/counter-strike、owner/repo、git@github.com:owner/repo.git）或 info.json 的 raw 地址；输入历史保存在本地。
+                </p>
             </div>
 
             <div
@@ -54,7 +104,7 @@
                 <span
                     class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-sky-600"
                 ></span>
-                正在加载 {{ selectedRepo?.name ?? "" }} 的 info.json…
+                正在加载 {{ currentRepoLabel }} 的 info.json…
             </div>
             <div v-else-if="loadError" class="rounded-md border border-red-200 bg-red-50 p-4">
                 <p class="text-sm font-semibold text-red-600">加载失败：{{ loadError }}</p>
@@ -69,10 +119,27 @@
                 v-else-if="!loadedInfo"
                 class="rounded-md border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-400"
             >
-                请选择游戏以加载配置
+                输入仓库地址并点击“加载”以读取 info.json
             </div>
 
             <template v-else>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-1.5 text-gray-600">变体</label>
+                    <select
+                        v-model="config.selectedFlavorKey"
+                        @change="onVariantChange"
+                        class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm transition-colors focus:outline-none focus:border-black"
+                    >
+                        <option
+                            v-for="variant in loadedInfo?.variants ?? []"
+                            :key="variant.key"
+                            :value="variant.key"
+                        >
+                            {{ variant.name }}
+                        </option>
+                    </select>
+                </div>
+
                 <div class="mb-4 grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold mb-1.5 text-gray-600"
@@ -319,7 +386,7 @@
             >
                 <span v-if="loading">正在加载…</span>
                 <span v-else-if="loadError">加载失败</span>
-                <span v-else>请先选择游戏</span>
+                <span v-else>请输入仓库地址并点击“加载”</span>
             </div>
         </div>
     </div>
@@ -329,21 +396,19 @@
 import { computed, reactive, ref } from "vue";
 import {
     DEFAULT_REGISTRIES,
-    gameRepos,
     mergeResources,
     normalizeRegistry,
-    toRawInfoUrl,
+    parseRepoUrl,
     type EnvRow,
     type FlavorResources,
     type GameInfo,
-    type GameRepo,
+    type ParsedRepoUrl,
     type PortRow,
     type Variant,
     type VolumeRow,
 } from "./games";
 
 interface GeneratorState {
-    selectedGameKey: string;
     selectedFlavorKey: string;
     containerName: string;
     ports: PortRow[];
@@ -360,7 +425,6 @@ interface ValidationMessage {
 }
 
 const createDefaultState = (): GeneratorState => ({
-    selectedGameKey: "",
     selectedFlavorKey: "",
     containerName: "",
     ports: [],
@@ -373,14 +437,121 @@ const createDefaultState = (): GeneratorState => ({
 
 const config = reactive<GeneratorState>(createDefaultState());
 
+const REPO_HISTORY_KEY = "hm-tools.gamesrv-launch-script-generator.repo-history";
+const REPO_HISTORY_LIMIT = 20;
+
+const readRepoHistory = (): string[] => {
+    try {
+        const raw = localStorage.getItem(REPO_HISTORY_KEY);
+        if (!raw) return [];
+        const parsed: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter((item): item is string => typeof item === "string")
+            .slice(0, REPO_HISTORY_LIMIT);
+    } catch {
+        return [];
+    }
+};
+
 const infoCache = new Map<string, GameInfo>();
 const loadedInfo = ref<GameInfo | null>(null);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
 
-const selectedRepo = computed<GameRepo | undefined>(() =>
-    gameRepos.find((repo) => repo.key === config.selectedGameKey),
-);
+const repoHistory = ref<string[]>(readRepoHistory());
+const repoInput = ref("");
+const repoDropdownOpen = ref(false);
+const repoHighlightIndex = ref(-1);
+const pendingRepo = ref<ParsedRepoUrl | null>(null);
+
+const repoOptions = computed<string[]>(() => {
+    if (!repoDropdownOpen.value) return [];
+    const keyword = repoInput.value.trim().toLowerCase();
+    if (!keyword) return repoHistory.value;
+    return repoHistory.value.filter((url) => url.toLowerCase().includes(keyword));
+});
+
+const currentRepoLabel = computed<string>(() => {
+    const repo = pendingRepo.value;
+    if (repo) return repo.repoPath;
+    return repoInput.value.trim() || "仓库";
+});
+
+const persistRepoHistory = () => {
+    try {
+        localStorage.setItem(REPO_HISTORY_KEY, JSON.stringify(repoHistory.value));
+    } catch (error) {
+        console.error("保存仓库输入历史失败", error);
+    }
+};
+
+const rememberRepoUrl = (url: string) => {
+    const next = [url, ...repoHistory.value.filter((item) => item !== url)];
+    repoHistory.value = next.slice(0, REPO_HISTORY_LIMIT);
+    persistRepoHistory();
+};
+
+const clearRepoHistory = () => {
+    repoHistory.value = [];
+    closeRepoDropdown();
+    try {
+        localStorage.removeItem(REPO_HISTORY_KEY);
+    } catch (error) {
+        console.error("清除仓库输入历史失败", error);
+    }
+};
+
+const openRepoDropdown = () => {
+    if (repoHistory.value.length > 0) repoDropdownOpen.value = true;
+};
+
+const closeRepoDropdown = () => {
+    repoDropdownOpen.value = false;
+    repoHighlightIndex.value = -1;
+};
+
+const toggleRepoDropdown = () => {
+    repoDropdownOpen.value = !repoDropdownOpen.value;
+    if (!repoDropdownOpen.value) repoHighlightIndex.value = -1;
+};
+
+const onRepoInput = () => {
+    repoDropdownOpen.value = true;
+    repoHighlightIndex.value = -1;
+};
+
+const moveRepoHighlight = (delta: number) => {
+    if (!repoDropdownOpen.value) {
+        repoDropdownOpen.value = true;
+        repoHighlightIndex.value = -1;
+    }
+    const options = repoOptions.value;
+    if (options.length === 0) return;
+    const current = repoHighlightIndex.value;
+    repoHighlightIndex.value =
+        current < 0
+            ? delta > 0
+                ? 0
+                : options.length - 1
+            : (current + delta + options.length) % options.length;
+};
+
+const onRepoEnter = () => {
+    const options = repoOptions.value;
+    const highlighted = repoHighlightIndex.value;
+    closeRepoDropdown();
+    if (highlighted >= 0 && options[highlighted]) {
+        repoInput.value = options[highlighted]!;
+    }
+    submitRepo();
+};
+
+const selectRepoOption = (url: string) => {
+    closeRepoDropdown();
+    repoInput.value = url;
+    submitRepo();
+};
 
 const activeVariant = computed<Variant | null>(() => {
     const info = loadedInfo.value;
@@ -412,10 +583,32 @@ const applyGame = (info: GameInfo) => {
     applyVariant(info, variant);
 };
 
-const fetchGame = async (repo: GameRepo) => {
-    const cached = infoCache.get(repo.url);
+const fetchGameInfo = async (rawCandidates: string[]): Promise<GameInfo> => {
+    let lastError: Error = new Error("加载失败");
+    for (const rawUrl of rawCandidates) {
+        try {
+            const response = await fetch(rawUrl);
+            if (!response.ok) {
+                lastError = new Error(`HTTP ${response.status}（${rawUrl}）`);
+                continue;
+            }
+            return (await response.json()) as GameInfo;
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                lastError = new Error(`info.json 解析失败（${rawUrl}）`);
+            } else {
+                lastError = error instanceof Error ? error : new Error(String(error));
+            }
+        }
+    }
+    throw lastError;
+};
+
+const loadRepo = async (parsed: ParsedRepoUrl) => {
+    const cached = infoCache.get(parsed.canonicalUrl);
     if (cached) {
         applyGame(cached);
+        rememberRepoUrl(parsed.canonicalUrl);
         return;
     }
 
@@ -423,17 +616,16 @@ const fetchGame = async (repo: GameRepo) => {
     loadError.value = null;
     loadedInfo.value = null;
     try {
-        const response = await fetch(toRawInfoUrl(repo.url));
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const info = (await response.json()) as GameInfo;
+        const info = await fetchGameInfo(parsed.rawCandidates);
         if (info.schemaVersion !== 1) {
             throw new Error(`不支持的 schemaVersion: ${info.schemaVersion}`);
         }
         if (!Array.isArray(info.variants) || info.variants.length === 0) {
             throw new Error("variants 为空");
         }
-        infoCache.set(repo.url, info);
+        infoCache.set(parsed.canonicalUrl, info);
         applyGame(info);
+        rememberRepoUrl(parsed.canonicalUrl);
     } catch (error) {
         loadError.value = error instanceof Error ? error.message : String(error);
     } finally {
@@ -441,12 +633,30 @@ const fetchGame = async (repo: GameRepo) => {
     }
 };
 
-const onGameChange = () => {
+const submitRepo = () => {
+    if (loading.value) return;
+    closeRepoDropdown();
     loadError.value = null;
     loadedInfo.value = null;
     config.selectedFlavorKey = "";
-    const repo = selectedRepo.value;
-    if (repo) void fetchGame(repo);
+
+    const input = repoInput.value.trim();
+    if (!input) {
+        loadError.value = "请输入仓库地址";
+        return;
+    }
+
+    let parsed: ParsedRepoUrl;
+    try {
+        parsed = parseRepoUrl(input);
+    } catch (error) {
+        loadError.value = error instanceof Error ? error.message : String(error);
+        return;
+    }
+
+    repoInput.value = parsed.canonicalUrl;
+    pendingRepo.value = parsed;
+    void loadRepo(parsed);
 };
 
 const onVariantChange = () => {
@@ -458,8 +668,7 @@ const onVariantChange = () => {
 };
 
 const retryLoad = () => {
-    const repo = selectedRepo.value;
-    if (repo) void fetchGame(repo);
+    void submitRepo();
 };
 
 const addPort = () => config.ports.push({ host: "", container: "", proto: "tcp" });
