@@ -93,7 +93,9 @@
                     </ul>
                 </div>
                 <p class="mt-1.5 text-xs text-gray-400">
-                    支持 GitHub 仓库地址（如 https://github.com/hm-gamesrv/counter-strike、owner/repo、git@github.com:owner/repo.git）或 info.json 的 raw 地址；输入历史保存在本地。
+                    支持 GitHub 仓库地址（如
+                    https://github.com/hm-gamesrv/counter-strike、owner/repo、git@github.com:owner/repo.git）或
+                    info.json 的 raw 地址；输入历史保存在本地。
                 </p>
             </div>
 
@@ -130,11 +132,7 @@
                         @change="onVariantChange"
                         class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm transition-colors focus:outline-none focus:border-black"
                     >
-                        <option
-                            v-for="variant in loadedInfo?.variants ?? []"
-                            :key="variant.key"
-                            :value="variant.key"
-                        >
+                        <option v-for="variant in loadedInfo?.variants ?? []" :key="variant.key" :value="variant.key">
                             {{ variant.name }}
                         </option>
                     </select>
@@ -142,9 +140,7 @@
 
                 <div class="mb-4 grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                            >实例序号</label
-                        >
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">实例序号</label>
                         <input
                             v-model.number="config.instance"
                             type="number"
@@ -156,9 +152,7 @@
                         </p>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                            >容器名</label
-                        >
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">容器名</label>
                         <input
                             v-model="config.containerName"
                             class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
@@ -167,23 +161,12 @@
                 </div>
 
                 <div class="mb-4 flex items-center gap-2">
-                    <input
-                        id="prefetch"
-                        v-model="config.prefetch"
-                        type="checkbox"
-                        class="h-4 w-4"
-                    />
-                    <label for="prefetch" class="text-sm font-semibold text-gray-600"
-                        >预取阿里云镜像</label
-                    >
+                    <input id="prefetch" v-model="config.prefetch" type="checkbox" class="h-4 w-4" />
+                    <label for="prefetch" class="text-sm font-semibold text-gray-600">预取阿里云镜像</label>
                 </div>
 
                 <h3 class="text-base font-semibold my-4 text-gray-600">端口</h3>
-                <div
-                    v-for="(row, index) in config.ports"
-                    :key="'p' + index"
-                    class="flex gap-2 mb-2.5 items-center"
-                >
+                <div v-for="(row, index) in config.ports" :key="'p' + index" class="flex gap-2 mb-2.5 items-center">
                     <span
                         class="group relative inline-flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full border border-gray-300 text-[11px] font-semibold text-gray-400"
                     >
@@ -236,11 +219,7 @@
                 </button>
 
                 <h3 class="text-base font-semibold my-4 text-gray-600">卷</h3>
-                <div
-                    v-for="(row, index) in config.volumes"
-                    :key="'v' + index"
-                    class="flex gap-2 mb-2.5 items-center"
-                >
+                <div v-for="(row, index) in config.volumes" :key="'v' + index" class="flex gap-2 mb-2.5 items-center">
                     <span
                         class="group relative inline-flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full border border-gray-300 text-[11px] font-semibold text-gray-400"
                     >
@@ -285,11 +264,7 @@
                 </button>
 
                 <h3 class="text-base font-semibold my-4 text-gray-600">环境变量</h3>
-                <div
-                    v-for="(row, index) in config.env"
-                    :key="'e' + index"
-                    class="flex gap-2 mb-2.5 items-center"
-                >
+                <div v-for="(row, index) in config.env" :key="'e' + index" class="flex gap-2 mb-2.5 items-center">
                     <span
                         class="group relative inline-flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full border border-gray-300 text-[11px] font-semibold text-gray-400"
                     >
@@ -312,9 +287,7 @@
                         placeholder="值"
                         class="flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
                     />
-                    <label
-                        class="flex shrink-0 items-center gap-1 text-xs font-semibold text-gray-500"
-                    >
+                    <label class="flex shrink-0 items-center gap-1 text-xs font-semibold text-gray-500">
                         <input v-model="row.secret" type="checkbox" class="h-4 w-4" />
                         敏感
                     </label>
@@ -446,9 +419,7 @@ const readRepoHistory = (): string[] => {
         if (!raw) return [];
         const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed
-            .filter((item): item is string => typeof item === "string")
-            .slice(0, REPO_HISTORY_LIMIT);
+        return parsed.filter((item): item is string => typeof item === "string").slice(0, REPO_HISTORY_LIMIT);
     } catch {
         return [];
     }
@@ -530,11 +501,7 @@ const moveRepoHighlight = (delta: number) => {
     if (options.length === 0) return;
     const current = repoHighlightIndex.value;
     repoHighlightIndex.value =
-        current < 0
-            ? delta > 0
-                ? 0
-                : options.length - 1
-            : (current + delta + options.length) % options.length;
+        current < 0 ? (delta > 0 ? 0 : options.length - 1) : (current + delta + options.length) % options.length;
 };
 
 const onRepoEnter = () => {
@@ -577,8 +544,7 @@ const applyVariant = (info: GameInfo, variant: Variant) => {
 const applyGame = (info: GameInfo) => {
     loadedInfo.value = info;
     loadError.value = null;
-    const variant =
-        info.variants.find((item) => item.key === config.selectedFlavorKey) ?? info.variants[0]!;
+    const variant = info.variants.find((item) => item.key === config.selectedFlavorKey) ?? info.variants[0]!;
     config.selectedFlavorKey = variant.key;
     applyVariant(info, variant);
 };
@@ -752,8 +718,7 @@ const generatedScript = computed(() => {
                 .filter((port) => port.host && port.container)
                 .map((port) => {
                     const hostNumber = Number(port.host);
-                    const host =
-                        inst > 1 && Number.isFinite(hostNumber) ? hostNumber + inst - 1 : port.host;
+                    const host = inst > 1 && Number.isFinite(hostNumber) ? hostNumber + inst - 1 : port.host;
                     return `${host}/${port.proto}`;
                 }),
         ),
@@ -797,8 +762,7 @@ const generatedScript = computed(() => {
     for (const row of config.ports) {
         if (!row.host || !row.container) continue;
         const hostNumber = Number(row.host);
-        const host =
-            inst > 1 && Number.isFinite(hostNumber) ? String(hostNumber + inst - 1) : row.host;
+        const host = inst > 1 && Number.isFinite(hostNumber) ? String(hostNumber + inst - 1) : row.host;
         run.push(`    -p ${host}:${row.container}/${row.proto}`);
     }
 

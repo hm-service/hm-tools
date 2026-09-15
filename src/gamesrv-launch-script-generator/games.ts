@@ -67,8 +67,7 @@ export const DEFAULT_REGISTRIES = {
     aliyun: "crpi-i9e7zrpnu4792a5m.cn-chengdu.personal.cr.aliyuncs.com/hiromuraki",
 };
 
-const RAW_INFO_URL_PATTERN =
-    /^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/info\.json$/i;
+const RAW_INFO_URL_PATTERN = /^https?:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/info\.json$/i;
 const GITHUB_WEB_URL_PATTERN =
     /^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^/?#]+))?(?:\/.*)?$/i;
 const GITHUB_SSH_URL_PATTERN = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i;
@@ -119,9 +118,7 @@ export const parseRepoUrl = (input: string): ParsedRepoUrl => {
     }
 
     const repoPath = `${owner}/${repo}`;
-    const canonicalUrl = branch
-        ? `https://github.com/${repoPath}/tree/${branch}`
-        : `https://github.com/${repoPath}`;
+    const canonicalUrl = branch ? `https://github.com/${repoPath}/tree/${branch}` : `https://github.com/${repoPath}`;
     const rawCandidates = branch
         ? [`https://raw.githubusercontent.com/${repoPath}/${branch}/info.json`]
         : [
@@ -135,10 +132,7 @@ export const parseRepoUrl = (input: string): ParsedRepoUrl => {
 export const normalizeRegistry = (base: string | undefined, fallback: string): string =>
     (base ?? fallback).replace(/\/+$/, "");
 
-export const mergeResources = (
-    base: FlavorResources,
-    override?: Partial<FlavorResources>,
-): FlavorResources => ({
+export const mergeResources = (base: FlavorResources, override?: Partial<FlavorResources>): FlavorResources => ({
     ports: override?.ports ?? base.ports,
     volumes: override?.volumes ?? base.volumes,
     env: override?.env ?? base.env,

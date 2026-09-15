@@ -29,9 +29,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                    >域名/IP</label
-                >
+                <label class="block text-sm font-semibold mb-1.5 text-gray-600">域名/IP</label>
                 <input
                     type="text"
                     v-model="config.relayServer"
@@ -41,9 +39,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                    >Address (主机 IP)</label
-                >
+                <label class="block text-sm font-semibold mb-1.5 text-gray-600">Address (主机 IP)</label>
                 <div class="flex items-center gap-2">
                     <input
                         type="text"
@@ -58,9 +54,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                    >ListenPort (监听端口)</label
-                >
+                <label class="block text-sm font-semibold mb-1.5 text-gray-600">ListenPort (监听端口)</label>
                 <input
                     type="number"
                     v-model.number="config.port"
@@ -78,9 +72,7 @@
             </div>
 
             <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                    >PrivateKey (私钥)</label
-                >
+                <label class="block text-sm font-semibold mb-1.5 text-gray-600">PrivateKey (私钥)</label>
                 <div class="relative">
                     <input
                         :type="showInterfacePrivateKey ? 'text' : 'password'"
@@ -95,14 +87,36 @@
                         :title="showInterfacePrivateKey ? '隐藏私钥' : '显示私钥'"
                         @click="showInterfacePrivateKey = !showInterfacePrivateKey"
                     >
-                        <svg v-if="showInterfacePrivateKey" viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                            <path d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z" stroke="currentColor" stroke-width="1.6"/>
-                            <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6"/>
+                        <svg
+                            v-if="showInterfacePrivateKey"
+                            viewBox="0 0 20 20"
+                            class="h-4 w-4"
+                            fill="none"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                            />
+                            <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6" />
                         </svg>
                         <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                            <path d="M3.5 4.5l13 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                            <path d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3.5 4.5l13 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                            <path
+                                d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
+                            <path
+                                d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
                         </svg>
                     </button>
                     <button
@@ -113,8 +127,19 @@
                         @click="generateKeys"
                     >
                         <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                            <path d="M16 10a6 6 0 1 1-1.4-3.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                            <path d="M15.5 3.5v3.5H12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path
+                                d="M16 10a6 6 0 1 1-1.4-3.8"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                                stroke-linecap="round"
+                            />
+                            <path
+                                d="M15.5 3.5v3.5H12"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            />
                         </svg>
                     </button>
                 </div>
@@ -143,11 +168,7 @@
 
             <h3 class="text-base font-semibold my-4 text-gray-600">PostUp 规则</h3>
             <div class="mb-5">
-                <div
-                    class="flex gap-2 mb-2.5 items-center"
-                    v-for="(_, index) in config.postUp"
-                    :key="'up' + index"
-                >
+                <div class="flex gap-2 mb-2.5 items-center" v-for="(_, index) in config.postUp" :key="'up' + index">
                     <input
                         type="text"
                         v-model="config.postUp[index]"
@@ -170,11 +191,7 @@
 
             <h3 class="text-base font-semibold my-4 text-gray-600">PostDown 规则</h3>
             <div class="mb-5">
-                <div
-                    class="flex gap-2 mb-2.5 items-center"
-                    v-for="(_, index) in config.postDown"
-                    :key="'down' + index"
-                >
+                <div class="flex gap-2 mb-2.5 items-center" v-for="(_, index) in config.postDown" :key="'down' + index">
                     <input
                         type="text"
                         v-model="config.postDown[index]"
@@ -206,13 +223,12 @@
                 </button>
             </div>
             <div
-                class="relative mb-4 overflow-hidden rounded-lg border border-gray-200 p-5 pr-17 shadow-sm transition-colors"
+                class="relative mb-4 overflow-hidden rounded-lg border p-5 pr-17 shadow-sm transition-colors"
                 :class="[
                     PEER_BACKGROUND_COLORS[index % PEER_BACKGROUND_COLORS.length] ?? 'bg-white',
+                    getPeerConflictMessage(peer) ? 'border-red-400 ring-2 ring-red-200' : 'border-gray-200',
                     draggedPeerIndex === index ? 'opacity-60' : '',
-                    draggedPeerIndex !== null &&
-                    draggedPeerIndex !== index &&
-                    dropTargetIndex === index
+                    draggedPeerIndex !== null && draggedPeerIndex !== index && dropTargetIndex === index
                         ? 'ring-2 ring-sky-300'
                         : '',
                 ]"
@@ -247,8 +263,17 @@
                                 <circle cx="13.5" cy="16" r="1.2" />
                             </svg>
                         </span>
-                        <span class="min-w-0 text-sm font-semibold text-gray-600 transition-colors group-hover:text-gray-800">
-                            {{ peer.name.trim() ? peer.name.trim() : `节点 #${index + 1}` }}
+                        <span
+                            class="min-w-0 text-sm font-semibold text-gray-600 transition-colors group-hover:text-gray-800"
+                        >
+                            {{ getPeerDisplayName(peer, index) }}
+                        </span>
+                        <span
+                            v-if="getPeerConflictMessage(peer)"
+                            class="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-600"
+                            :title="getPeerConflictMessage(peer)"
+                        >
+                            冲突
                         </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-1">
@@ -273,13 +298,7 @@
                                     stroke-linejoin="round"
                                 />
                             </svg>
-                            <svg
-                                v-else
-                                viewBox="0 0 20 20"
-                                class="h-4 w-4"
-                                fill="none"
-                                aria-hidden="true"
-                            >
+                            <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
                                 <path
                                     d="M5 8l5 5 5-5"
                                     stroke="currentColor"
@@ -293,10 +312,14 @@
                 </div>
 
                 <div v-if="peer.expanded">
+                    <div
+                        v-if="getPeerConflictMessage(peer)"
+                        class="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+                    >
+                        {{ getPeerConflictMessage(peer) }}
+                    </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                            >节点备注</label
-                        >
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">节点备注</label>
                         <input
                             type="text"
                             v-model="peer.name"
@@ -305,9 +328,7 @@
                         />
                     </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                            >PrivateKey (私钥)</label
-                        >
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">PrivateKey (私钥)</label>
                         <div class="relative">
                             <input
                                 :type="peer.showPrivateKey ? 'text' : 'password'"
@@ -322,14 +343,41 @@
                                 :title="peer.showPrivateKey ? '隐藏私钥' : '显示私钥'"
                                 @click="peer.showPrivateKey = !peer.showPrivateKey"
                             >
-                                <svg v-if="peer.showPrivateKey" viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                                    <path d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z" stroke="currentColor" stroke-width="1.6"/>
-                                    <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6"/>
+                                <svg
+                                    v-if="peer.showPrivateKey"
+                                    viewBox="0 0 20 20"
+                                    class="h-4 w-4"
+                                    fill="none"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z"
+                                        stroke="currentColor"
+                                        stroke-width="1.6"
+                                    />
+                                    <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6" />
                                 </svg>
                                 <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                                    <path d="M3.5 4.5l13 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                    <path d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path
+                                        d="M3.5 4.5l13 11"
+                                        stroke="currentColor"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                    />
+                                    <path
+                                        d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9"
+                                        stroke="currentColor"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
+                                    <path
+                                        d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9"
+                                        stroke="currentColor"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
                                 </svg>
                             </button>
                             <button
@@ -340,16 +388,25 @@
                                 @click="generatePeerKeys(peer)"
                             >
                                 <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                                    <path d="M16 10a6 6 0 1 1-1.4-3.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                                    <path d="M15.5 3.5v3.5H12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path
+                                        d="M16 10a6 6 0 1 1-1.4-3.8"
+                                        stroke="currentColor"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                    />
+                                    <path
+                                        d="M15.5 3.5v3.5H12"
+                                        stroke="currentColor"
+                                        stroke-width="1.6"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
                                 </svg>
                             </button>
                         </div>
                     </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                            >PublicKey (节点公钥)</label
-                        >
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">PublicKey (节点公钥)</label>
                         <div class="flex items-center gap-2">
                             <input
                                 type="text"
@@ -367,9 +424,7 @@
                         </div>
                     </div>
                     <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                            >主机号</label
-                        >
+                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">主机号</label>
                         <input
                             type="number"
                             min="1"
@@ -483,8 +538,7 @@
             </div>
             <pre
                 class="bg-white p-5 rounded-lg border border-gray-200 font-mono text-sm leading-relaxed overflow-x-auto grow whitespace-pre-wrap wrap-break-word shadow-inner"
-                >{{ generatedConfig }}</pre
-            >
+                >{{ generatedConfig }}</pre>
             <div class="mt-4 flex justify-end">
                 <button
                     class="rounded-md border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
@@ -525,18 +579,21 @@ interface WgConfig {
     peers: Peer[];
 }
 
+interface PeerConflict {
+    duplicateHostPart: number | null;
+    duplicateKey: boolean;
+}
+
 interface IniSection {
     name: string;
     pairs: Record<string, string[]>;
     comments: string[];
 }
 
-const PEER_BACKGROUND_COLORS = [
-    "bg-white",
-    "bg-gray-100",
-] as const;
+const PEER_BACKGROUND_COLORS = ["bg-white", "bg-gray-100"] as const;
 
 const STORAGE_KEY = "hm-tools.wireguard-config-generator";
+const DEFAULT_HOST_PART = 101;
 
 const createDefaultConfig = (): WgConfig => ({
     host: "10.8.0.1",
@@ -717,6 +774,93 @@ const movePeer = (from: number, to: number) => {
     }
 };
 
+const getPeerDisplayName = (peer: Peer, index: number): string => {
+    const label = peer.name.trim() || `节点 #${index + 1}`;
+    return typeof peer.hostPart === "number" ? `${label} (${peer.hostPart})` : label;
+};
+
+// 生成配置时未填主机号会回落到 DEFAULT_HOST_PART，校验必须按同一个口径判断，
+// 否则两个都没填主机号的节点会同时拿到 .101 却不被标记为冲突。
+const getEffectiveHostPart = (peer: Peer): number =>
+    typeof peer.hostPart === "number" ? peer.hostPart : DEFAULT_HOST_PART;
+
+// 私钥非法时 publicKey 会被写成 "(无效的私钥格式)" 这类提示文案，
+// 这些字符串同样会互相重复，需要排除掉，否则会产生误报。
+const isValidWireGuardKey = (key: string): boolean => {
+    const decoded = decodeBase64(key.trim());
+    return decoded !== null && decoded.length === 32;
+};
+
+const peerConflicts = computed((): Map<number, PeerConflict> => {
+    const conflicts = new Map<number, PeerConflict>();
+    const peersByHostPart = new Map<number, Peer[]>();
+    const peersByPublicKey = new Map<string, Peer[]>();
+
+    const addToGroup = <K,>(groups: Map<K, Peer[]>, key: K, peer: Peer) => {
+        const group = groups.get(key);
+        if (group) {
+            group.push(peer);
+        } else {
+            groups.set(key, [peer]);
+        }
+    };
+
+    const getOrCreateConflict = (peer: Peer): PeerConflict => {
+        const existing = conflicts.get(peer.id);
+        if (existing) return existing;
+
+        const created: PeerConflict = { duplicateHostPart: null, duplicateKey: false };
+        conflicts.set(peer.id, created);
+        return created;
+    };
+
+    config.peers.forEach((peer) => {
+        addToGroup(peersByHostPart, getEffectiveHostPart(peer), peer);
+
+        const publicKey = peer.publicKey.trim();
+        if (isValidWireGuardKey(publicKey)) {
+            addToGroup(peersByPublicKey, publicKey, peer);
+        }
+    });
+
+    peersByHostPart.forEach((group, hostPart) => {
+        if (group.length < 2) return;
+        group.forEach((peer) => {
+            getOrCreateConflict(peer).duplicateHostPart = hostPart;
+        });
+    });
+
+    peersByPublicKey.forEach((group) => {
+        if (group.length < 2) return;
+        group.forEach((peer) => {
+            getOrCreateConflict(peer).duplicateKey = true;
+        });
+    });
+
+    return conflicts;
+});
+
+// 返回空字符串表示该节点没有问题，模板里直接当作 v-if 条件用。
+const getPeerConflictMessage = (peer: Peer): string => {
+    const conflict = peerConflicts.value.get(peer.id);
+    if (!conflict) return "";
+
+    const reasons: string[] = [];
+
+    if (conflict.duplicateHostPart !== null) {
+        reasons.push(
+            typeof peer.hostPart === "number"
+                ? `主机号 ${peer.hostPart} 已被其它节点占用`
+                : `未填写主机号（默认为 ${DEFAULT_HOST_PART}）已被其它节点占用`,
+        );
+    }
+    if (conflict.duplicateKey) {
+        reasons.push("密钥与其它节点重复");
+    }
+
+    return `${reasons.join("；")}，请修改。`;
+};
+
 const onPeerDragStart = (index: number, event: DragEvent) => {
     draggedPeerIndex.value = index;
     dropTargetIndex.value = index;
@@ -780,12 +924,18 @@ const copyPeerPublicKey = async (peer: Peer) => {
 };
 
 const sanitizePeerFileStem = (value: string, fallback: string): string => {
-    const cleaned = value.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9_-]/g, "");
+    const cleaned = value
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/[^A-Za-z0-9_-]/g, "");
     return cleaned || fallback;
 };
 
 const sanitizeArchiveFileName = (value: string, fallback: string): string => {
-    const cleaned = value.trim().replace(/\s+/g, "_").replace(/[^A-Za-z0-9_.-]/g, "");
+    const cleaned = value
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/[^A-Za-z0-9_.-]/g, "");
     return cleaned || fallback;
 };
 
@@ -842,21 +992,23 @@ const buildClientConfig = (peer: Peer): string => {
 
     const hostBase = getHostBase(config.host);
     const peerNetworkPrefix = getPeerNetworkPrefix(hostBase);
-    const hostPart = typeof peer.hostPart === "number" ? peer.hostPart : 101;
+    const hostPart = getEffectiveHostPart(peer);
     const relayEndpoint = config.relayServer.trim() ? `${config.relayServer.trim()}:51820` : "";
 
-    return [
-        "[Interface]",
-        `PrivateKey = ${peer.privateKey}`,
-        `Address = ${peerNetworkPrefix}.${hostPart}/24`,
-        "MTU = 1280",
-        "",
-        "[Peer]",
-        `PublicKey = ${config.publicKey}`,
-        `AllowedIPs = ${peerNetworkPrefix}.0/24`,
-        `Endpoint = ${relayEndpoint}`,
-        "PersistentKeepalive = 25",
-    ].join("\n") + "\n";
+    return (
+        [
+            "[Interface]",
+            `PrivateKey = ${peer.privateKey}`,
+            `Address = ${peerNetworkPrefix}.${hostPart}/24`,
+            "MTU = 1280",
+            "",
+            "[Peer]",
+            `PublicKey = ${config.publicKey}`,
+            `AllowedIPs = ${peerNetworkPrefix}.0/24`,
+            `Endpoint = ${relayEndpoint}`,
+            "PersistentKeepalive = 25",
+        ].join("\n") + "\n"
+    );
 };
 
 const copyClientConfig = async (peer: Peer) => {
@@ -864,16 +1016,18 @@ const copyClientConfig = async (peer: Peer) => {
 };
 
 const buildRelayPeerBlock = (peer: Peer): string => {
-    const hostBase = getHostBase(config.host);
-    const peerNetworkPrefix = getPeerNetworkPrefix(hostBase);
-    const hostPart = typeof peer.hostPart === "number" ? peer.hostPart : null;
+    const publicKey = peer.publicKey.trim();
+    // 没有公钥的 [Peer] 块是无效配置，直接跳过；有公钥时必须一并给出 AllowedIPs，
+    // 否则该节点能完成握手但没有回程路由，表现为连上却不通。
+    if (!publicKey) return "";
+
+    const peerNetworkPrefix = getPeerNetworkPrefix(getHostBase(config.host));
     const lines: string[] = [];
 
     if (peer.name.trim()) lines.push(`# ${peer.name.trim()}`);
-    if (peer.publicKey.trim()) lines.push(`PublicKey = ${peer.publicKey.trim()}`);
-    if (hostPart !== null) lines.push(`AllowedIPs = ${peerNetworkPrefix}.${hostPart}/32`);
+    lines.push(`PublicKey = ${publicKey}`);
+    lines.push(`AllowedIPs = ${peerNetworkPrefix}.${getEffectiveHostPart(peer)}/32`);
 
-    if (!lines.length) return "";
     return `[Peer]\n${lines.join("\n")}`;
 };
 
@@ -952,8 +1106,7 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
         imported.privateKey = pairs.PrivateKey?.[0] ?? "";
         imported.postUp = pairs.PostUp ?? [];
         imported.postDown = pairs.PostDown ?? [];
-        imported.relayServer =
-            interfaceSection.comments.find((comment) => !comment.startsWith("PublicKey =")) ?? "";
+        imported.relayServer = interfaceSection.comments.find((comment) => !comment.startsWith("PublicKey =")) ?? "";
     }
 
     const wgPeerInfos = peerSections.map((section) => ({
@@ -986,9 +1139,7 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
     }
 
     let importedPeers: Peer[] = wgPeerInfos.map((wgPeerInfo, index) => {
-        const clientPeer = wgPeerInfo.publicKey
-            ? clientsByPublicKey.get(wgPeerInfo.publicKey)
-            : undefined;
+        const clientPeer = wgPeerInfo.publicKey ? clientsByPublicKey.get(wgPeerInfo.publicKey) : undefined;
 
         return {
             id: index,
