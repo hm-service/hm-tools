@@ -28,6 +28,13 @@
                 </div>
             </div>
 
+            <div
+                v-if="configIssues.length"
+                class="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+            >
+                <div v-for="issue in configIssues" :key="issue">{{ issue }}</div>
+            </div>
+
             <div class="mb-4">
                 <label class="block text-sm font-semibold mb-1.5 text-gray-600">域名/IP</label>
                 <input
@@ -226,7 +233,7 @@
                 class="relative mb-4 overflow-hidden rounded-lg border p-5 pr-17 shadow-sm transition-colors"
                 :class="[
                     PEER_BACKGROUND_COLORS[index % PEER_BACKGROUND_COLORS.length] ?? 'bg-white',
-                    getPeerConflictMessage(peer) ? 'border-red-400 ring-2 ring-red-200' : 'border-gray-200',
+                    hasPeerIssue(peer) ? 'border-red-400 ring-2 ring-red-200' : 'border-gray-200',
                     draggedPeerIndex === index ? 'opacity-60' : '',
                     draggedPeerIndex !== null && draggedPeerIndex !== index && dropTargetIndex === index
                         ? 'ring-2 ring-sky-300'
@@ -269,11 +276,11 @@
                             {{ getPeerDisplayName(peer, index) }}
                         </span>
                         <span
-                            v-if="getPeerConflictMessage(peer)"
+                            v-if="getPeerIssueLabel(peer)"
                             class="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-600"
-                            :title="getPeerConflictMessage(peer)"
+                            :title="getPeerIssueMessage(peer)"
                         >
-                            冲突
+                            {{ getPeerIssueLabel(peer) }}
                         </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-1">
@@ -313,10 +320,10 @@
 
                 <div v-if="peer.expanded">
                     <div
-                        v-if="getPeerConflictMessage(peer)"
+                        v-if="getPeerIssueMessage(peer)"
                         class="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
                     >
-                        {{ getPeerConflictMessage(peer) }}
+                        {{ getPeerIssueMessage(peer) }}
                     </div>
                     <div class="mb-4">
                         <label class="block text-sm font-semibold mb-1.5 text-gray-600">节点备注</label>
@@ -438,16 +445,23 @@
 
                 <div class="mt-4 flex justify-end gap-2">
                     <button
-                        class="px-3 py-1.5 text-gray-700 border border-gray-300 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-gray-800 hover:text-white hover:border-gray-800"
+                        class="px-3 py-1.5 text-gray-700 border border-gray-300 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-gray-800 hover:text-white hover:border-gray-800 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
                         type="button"
-                        title="复制该节点的 [Peer] 配置，粘贴到中继服务器的 wg0.conf"
+                        :disabled="hasPeerIssue(peer)"
+                        :title="
+                            hasPeerIssue(peer)
+                                ? '该节点配置有误，请先修正'
+                                : '复制该节点的 [Peer] 配置，粘贴到中继服务器的 wg0.conf'
+                        "
                         @click="copyRelayPeerBlock(peer)"
                     >
                         复制中继配置
                     </button>
                     <button
-                        class="px-3 py-1.5 text-sky-700 border border-sky-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-sky-700 hover:text-white hover:border-sky-700"
+                        class="px-3 py-1.5 text-sky-700 border border-sky-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-sky-700 hover:text-white hover:border-sky-700 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-300"
                         type="button"
+                        :disabled="hasPeerIssue(peer)"
+                        :title="hasPeerIssue(peer) ? '该节点配置有误，请先修正' : '复制该节点的客户端配置'"
                         @click="copyClientConfig(peer)"
                     >
                         复制客户端配置
@@ -530,7 +544,9 @@
             <div class="mb-4 flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
                 <h2 class="mt-0 text-xl font-semibold">wg.conf 预览</h2>
                 <button
-                    class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                    class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
+                    :disabled="hasConfigError"
+                    :title="hasConfigError ? '配置有误，请先修正标红的项' : '复制 wg0.conf'"
                     @click="copyGeneratedConfig"
                 >
                     复制
@@ -541,8 +557,10 @@
                 >{{ generatedConfig }}</pre>
             <div class="mt-4 flex justify-end">
                 <button
-                    class="rounded-md border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                    class="rounded-md border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
                     type="button"
+                    :disabled="hasConfigError"
+                    :title="hasConfigError ? '配置有误，请先修正标红的项' : '下载配置包 (wg0.conf + 各节点客户端配置)'"
                     @click="downloadConfigPackage"
                 >
                     下载配置包
@@ -579,8 +597,11 @@ interface WgConfig {
     peers: Peer[];
 }
 
-interface PeerConflict {
+interface PeerIssue {
+    missingHostPart: boolean;
+    invalidHostPart: number | null;
     duplicateHostPart: number | null;
+    invalidKey: boolean;
     duplicateKey: boolean;
 }
 
@@ -593,7 +614,16 @@ interface IniSection {
 const PEER_BACKGROUND_COLORS = ["bg-white", "bg-gray-100"] as const;
 
 const STORAGE_KEY = "hm-tools.wireguard-config-generator";
-const DEFAULT_HOST_PART = 101;
+
+// /24 网段里可用的主机地址范围（.0 是网络号，.255 是广播地址）。
+const MIN_HOST_PART = 1;
+const MAX_HOST_PART = 254;
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
+// 下限 1280 兼顾两件事：WireGuard 对 IPv6 的最低要求，以及客户端配置里写死的 1280，
+// 保证中继 MTU 不会低于客户端。
+const MIN_MTU = 1280;
+const MAX_MTU = 1500;
 
 const createDefaultConfig = (): WgConfig => ({
     host: "10.8.0.1",
@@ -776,13 +806,24 @@ const movePeer = (from: number, to: number) => {
 
 const getPeerDisplayName = (peer: Peer, index: number): string => {
     const label = peer.name.trim() || `节点 #${index + 1}`;
-    return typeof peer.hostPart === "number" ? `${label} (${peer.hostPart})` : label;
+    const hostPart = getNumericValue(peer.hostPart);
+
+    return hostPart === null ? label : `${label} (${hostPart})`;
 };
 
-// 生成配置时未填主机号会回落到 DEFAULT_HOST_PART，校验必须按同一个口径判断，
-// 否则两个都没填主机号的节点会同时拿到 .101 却不被标记为冲突。
-const getEffectiveHostPart = (peer: Peer): number =>
-    typeof peer.hostPart === "number" ? peer.hostPart : DEFAULT_HOST_PART;
+// 数字输入框被清空时 v-model.number 留下的是空字符串，而类型标注写的是 number | null，
+// 所以运行时取值一律走这里，不要直接相信 config.port / peer.hostPart 的类型。
+const getNumericValue = (value: number | null): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const isValidHostPart = (hostPart: number): boolean =>
+    Number.isInteger(hostPart) && hostPart >= MIN_HOST_PART && hostPart <= MAX_HOST_PART;
+
+// 只有合法主机号才算数，缺失和越界都按“没有”处理，生成配置时不会用到。
+const getHostPart = (peer: Peer): number | null => {
+    const hostPart = getNumericValue(peer.hostPart);
+    return hostPart !== null && isValidHostPart(hostPart) ? hostPart : null;
+};
 
 // 私钥非法时 publicKey 会被写成 "(无效的私钥格式)" 这类提示文案，
 // 这些字符串同样会互相重复，需要排除掉，否则会产生误报。
@@ -791,8 +832,71 @@ const isValidWireGuardKey = (key: string): boolean => {
     return decoded !== null && decoded.length === 32;
 };
 
-const peerConflicts = computed((): Map<number, PeerConflict> => {
-    const conflicts = new Map<number, PeerConflict>();
+const parseIpv4Octets = (value: string): number[] | null => {
+    const parts = value.trim().split(".");
+    if (parts.length !== 4 || parts.some((part) => !/^\d{1,3}$/.test(part))) return null;
+
+    const octets = parts.map(Number);
+    return octets.every((octet) => octet <= 255) ? octets : null;
+};
+
+const getRelayServerIssue = (): string => (config.relayServer.trim() ? "" : "未填写域名/IP");
+
+const getHostIssue = (): string => {
+    const hostBase = getHostBase(config.host);
+    if (!hostBase) return "未填写 Address (主机 IP)";
+
+    const octets = parseIpv4Octets(hostBase);
+    if (!octets) return "Address (主机 IP) 不是合法的 IPv4 地址";
+
+    const lastOctet = octets[3]!;
+    if (lastOctet < MIN_HOST_PART || lastOctet > MAX_HOST_PART) {
+        return `Address (主机 IP) 的最后一段必须在 ${MIN_HOST_PART}-${MAX_HOST_PART} 之间`;
+    }
+
+    return "";
+};
+
+const isValidPort = (port: number): boolean => Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
+
+// 同 getHostPart：只有合法端口才算数，客户端配置的 Endpoint 用它拼出来。
+const getPort = (): number | null => {
+    const port = getNumericValue(config.port);
+    return port !== null && isValidPort(port) ? port : null;
+};
+
+const getPortIssue = (): string => {
+    const port = getNumericValue(config.port);
+    if (port === null) return "未填写 ListenPort (监听端口)";
+
+    return isValidPort(port) ? "" : `ListenPort (监听端口) 必须是 ${MIN_PORT}-${MAX_PORT} 之间的整数`;
+};
+
+const getMtuIssue = (): string => {
+    const mtu = getNumericValue(config.mtu);
+    if (mtu === null) return "未填写 MTU";
+
+    return Number.isInteger(mtu) && mtu >= MIN_MTU && mtu <= MAX_MTU
+        ? ""
+        : `MTU 必须是 ${MIN_MTU}-${MAX_MTU} 之间的整数`;
+};
+
+const getInterfaceKeyIssue = (): string => {
+    const privateKey = config.privateKey.trim();
+    if (!privateKey) return "未填写 PrivateKey (私钥)";
+
+    return isValidWireGuardKey(privateKey) ? "" : "PrivateKey (私钥) 不是有效的 WireGuard 密钥";
+};
+
+// 节点的空私钥会被 ensurePeerKeyPair 自动补齐新密钥对，所以不算错误；
+// 只有填了内容却解不出 32 字节才报错。
+const hasInvalidPeerKey = (peer: Peer): boolean => {
+    const privateKey = peer.privateKey.trim();
+    return privateKey !== "" && !isValidWireGuardKey(privateKey);
+};
+
+const peerIssues = computed((): Map<number, PeerIssue> => {
+    const issues = new Map<number, PeerIssue>();
     const peersByHostPart = new Map<number, Peer[]>();
     const peersByPublicKey = new Map<string, Peer[]>();
 
@@ -805,17 +909,35 @@ const peerConflicts = computed((): Map<number, PeerConflict> => {
         }
     };
 
-    const getOrCreateConflict = (peer: Peer): PeerConflict => {
-        const existing = conflicts.get(peer.id);
+    const getOrCreateIssue = (peer: Peer): PeerIssue => {
+        const existing = issues.get(peer.id);
         if (existing) return existing;
 
-        const created: PeerConflict = { duplicateHostPart: null, duplicateKey: false };
-        conflicts.set(peer.id, created);
+        const created: PeerIssue = {
+            missingHostPart: false,
+            invalidHostPart: null,
+            duplicateHostPart: null,
+            invalidKey: false,
+            duplicateKey: false,
+        };
+        issues.set(peer.id, created);
         return created;
     };
 
     config.peers.forEach((peer) => {
-        addToGroup(peersByHostPart, getEffectiveHostPart(peer), peer);
+        const hostPart = getNumericValue(peer.hostPart);
+        if (hostPart === null) {
+            getOrCreateIssue(peer).missingHostPart = true;
+        } else if (!isValidHostPart(hostPart)) {
+            // 越界的主机号不参与重复比较，否则同一个错误会报两遍。
+            getOrCreateIssue(peer).invalidHostPart = hostPart;
+        } else {
+            addToGroup(peersByHostPart, hostPart, peer);
+        }
+
+        if (hasInvalidPeerKey(peer)) {
+            getOrCreateIssue(peer).invalidKey = true;
+        }
 
         const publicKey = peer.publicKey.trim();
         if (isValidWireGuardKey(publicKey)) {
@@ -826,40 +948,68 @@ const peerConflicts = computed((): Map<number, PeerConflict> => {
     peersByHostPart.forEach((group, hostPart) => {
         if (group.length < 2) return;
         group.forEach((peer) => {
-            getOrCreateConflict(peer).duplicateHostPart = hostPart;
+            getOrCreateIssue(peer).duplicateHostPart = hostPart;
         });
     });
 
     peersByPublicKey.forEach((group) => {
         if (group.length < 2) return;
         group.forEach((peer) => {
-            getOrCreateConflict(peer).duplicateKey = true;
+            getOrCreateIssue(peer).duplicateKey = true;
         });
     });
 
-    return conflicts;
+    return issues;
 });
 
+const hasPeerIssue = (peer: Peer): boolean => peerIssues.value.has(peer.id);
+
 // 返回空字符串表示该节点没有问题，模板里直接当作 v-if 条件用。
-const getPeerConflictMessage = (peer: Peer): string => {
-    const conflict = peerConflicts.value.get(peer.id);
-    if (!conflict) return "";
+const getPeerIssueMessage = (peer: Peer): string => {
+    const issue = peerIssues.value.get(peer.id);
+    if (!issue) return "";
 
     const reasons: string[] = [];
 
-    if (conflict.duplicateHostPart !== null) {
-        reasons.push(
-            typeof peer.hostPart === "number"
-                ? `主机号 ${peer.hostPart} 已被其它节点占用`
-                : `未填写主机号（默认为 ${DEFAULT_HOST_PART}）已被其它节点占用`,
-        );
+    if (issue.missingHostPart) {
+        reasons.push("未填写主机号");
     }
-    if (conflict.duplicateKey) {
+    if (issue.invalidHostPart !== null) {
+        reasons.push(`主机号 ${issue.invalidHostPart} 无效，必须是 ${MIN_HOST_PART}-${MAX_HOST_PART} 之间的整数`);
+    }
+    if (issue.duplicateHostPart !== null) {
+        reasons.push(`主机号 ${issue.duplicateHostPart} 已被其它节点占用`);
+    }
+    if (issue.invalidKey) {
+        reasons.push("密钥格式不正确");
+    }
+    if (issue.duplicateKey) {
         reasons.push("密钥与其它节点重复");
     }
 
     return `${reasons.join("；")}，请修改。`;
 };
+
+// 折叠状态下的短标签。主机号是必填项，新增节点默认就是空的，
+// 所以「未填主机号」比笼统的「冲突」更值得直接写出来。
+const getPeerIssueLabel = (peer: Peer): string => {
+    const issue = peerIssues.value.get(peer.id);
+    if (!issue) return "";
+
+    if (issue.missingHostPart) return "未填主机号";
+    if (issue.invalidHostPart !== null) return "主机号有误";
+
+    return "冲突";
+};
+
+const configIssues = computed((): string[] =>
+    [getRelayServerIssue(), getHostIssue(), getPortIssue(), getMtuIssue(), getInterfaceKeyIssue()].filter(
+        (issue) => issue !== "",
+    ),
+);
+
+// 复制和下载产出的都是拿去直接使用的配置，只要有一处错误就整体禁用。
+const hasConfigError = computed((): boolean => configIssues.value.length > 0 || peerIssues.value.size > 0);
 
 const onPeerDragStart = (index: number, event: DragEvent) => {
     draggedPeerIndex.value = index;
@@ -990,22 +1140,26 @@ const getPeerNetworkPrefix = (host: string): string => {
 const buildClientConfig = (peer: Peer): string => {
     ensurePeerKeyPair(peer);
 
-    const hostBase = getHostBase(config.host);
-    const peerNetworkPrefix = getPeerNetworkPrefix(hostBase);
-    const hostPart = getEffectiveHostPart(peer);
-    const relayEndpoint = config.relayServer.trim() ? `${config.relayServer.trim()}:51820` : "";
+    const peerNetworkPrefix = getPeerNetworkPrefix(getHostBase(config.host));
+    const hostPart = getHostPart(peer);
+    const port = getPort();
+    const relayServer = config.relayServer.trim();
+    // 端口必须跟中继的 ListenPort 一致，否则客户端连的是另一个端口。
+    const relayEndpoint = relayServer && port !== null ? `${relayServer}:${port}` : "";
 
     return (
         [
             "[Interface]",
             `PrivateKey = ${peer.privateKey}`,
-            `Address = ${peerNetworkPrefix}.${hostPart}/24`,
+            // 主机号必填，缺失时不生成占位地址，让预览里直接看出缺了什么。
+            ...(hostPart === null ? [] : [`Address = ${peerNetworkPrefix}.${hostPart}/24`]),
             "MTU = 1280",
             "",
             "[Peer]",
             `PublicKey = ${config.publicKey}`,
             `AllowedIPs = ${peerNetworkPrefix}.0/24`,
-            `Endpoint = ${relayEndpoint}`,
+            // 域名或端口缺失时整行省略，不写出 `Endpoint = ` 这种半截配置。
+            ...(relayEndpoint === "" ? [] : [`Endpoint = ${relayEndpoint}`]),
             "PersistentKeepalive = 25",
         ].join("\n") + "\n"
     );
@@ -1017,16 +1171,18 @@ const copyClientConfig = async (peer: Peer) => {
 
 const buildRelayPeerBlock = (peer: Peer): string => {
     const publicKey = peer.publicKey.trim();
-    // 没有公钥的 [Peer] 块是无效配置，直接跳过；有公钥时必须一并给出 AllowedIPs，
-    // 否则该节点能完成握手但没有回程路由，表现为连上却不通。
-    if (!publicKey) return "";
+    const hostPart = getHostPart(peer);
+
+    // 主机号或公钥不合格时整块跳过，不生成半截配置；公钥非法时 peer.publicKey 里
+    // 存的是 "(无效的私钥格式)" 这类提示文案，绝不能当成密钥写进配置。
+    if (!isValidWireGuardKey(publicKey) || hostPart === null) return "";
 
     const peerNetworkPrefix = getPeerNetworkPrefix(getHostBase(config.host));
     const lines: string[] = [];
 
     if (peer.name.trim()) lines.push(`# ${peer.name.trim()}`);
     lines.push(`PublicKey = ${publicKey}`);
-    lines.push(`AllowedIPs = ${peerNetworkPrefix}.${getEffectiveHostPart(peer)}/32`);
+    lines.push(`AllowedIPs = ${peerNetworkPrefix}.${hostPart}/32`);
 
     return `[Peer]\n${lines.join("\n")}`;
 };
