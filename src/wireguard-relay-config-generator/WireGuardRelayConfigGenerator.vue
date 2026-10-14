@@ -1,19 +1,19 @@
 <template>
     <div class="flex h-full w-full min-h-0 text-gray-800 font-sans box-border">
-        <div class="w-1/2 p-8 overflow-y-auto border-r border-gray-200 box-border">
-            <div class="mb-4 flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
-                <h2 class="mt-0 text-xl font-semibold">WireGuard 接口配置 (Interface)</h2>
-                <div class="flex shrink-0 items-center gap-2">
+        <div class="w-1/2 min-h-0 overflow-y-auto border-r border-gray-200 box-border p-4">
+            <div class="mb-3 flex items-center justify-between gap-2 border-b border-gray-200 pb-2">
+                <h2 class="text-base font-semibold">WireGuard 接口配置 (Interface)</h2>
+                <div class="flex shrink-0 items-center gap-1.5">
                     <button
                         type="button"
-                        class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-500 hover:text-gray-900"
+                        class="h-8 shrink-0 cursor-pointer rounded border border-gray-300 bg-white px-2.5 text-sm font-semibold text-gray-600 transition-colors hover:border-gray-500 hover:text-gray-900"
                         @click="openImportFilePicker"
                     >
                         导入
                     </button>
                     <button
                         type="button"
-                        class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                        class="h-8 shrink-0 cursor-pointer rounded border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
                         @click="resetConfig"
                     >
                         重置
@@ -30,250 +30,427 @@
 
             <div
                 v-if="configIssues.length"
-                class="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
+                class="mb-3 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700"
             >
                 <div v-for="issue in configIssues" :key="issue">{{ issue }}</div>
             </div>
 
-            <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600">域名/IP</label>
-                <input
-                    type="text"
-                    v-model="config.relayServer"
-                    placeholder="例如: relay.example.com"
-                    class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                />
+            <div class="space-y-3">
+                <section class="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+                    <h3 class="mb-2 text-sm font-semibold text-gray-700">网络配置</h3>
+                    <div class="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500">Address (主机 IP)</label>
+                            <div class="relative">
+                                <input
+                                    type="text"
+                                    v-model="config.host"
+                                    placeholder="例如: 10.8.0.1"
+                                    class="h-9 w-full rounded-md border border-gray-300 box-border bg-white pl-2.5 pr-10 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                                />
+                                <span
+                                    class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                                >
+                                    /24
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500">ListenPort (监听端口)</label>
+                            <input
+                                type="number"
+                                v-model.number="config.port"
+                                class="h-9 w-full rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500">
+                                域名/IP (客户端 Endpoint)
+                            </label>
+                            <input
+                                type="text"
+                                v-model="config.relayServer"
+                                placeholder="例如: relay.example.com"
+                                class="h-9 w-full rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500">MTU</label>
+                            <input
+                                type="number"
+                                v-model.number="config.mtu"
+                                class="h-9 w-full rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+                    <h3 class="mb-2 text-sm font-semibold text-gray-700">密钥配置</h3>
+                    <div class="space-y-2.5">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500">PrivateKey (私钥)</label>
+                            <div class="relative">
+                                <input
+                                    :type="showInterfacePrivateKey ? 'text' : 'password'"
+                                    v-model="config.privateKey"
+                                    @input="derivePublicKey"
+                                    class="h-9 w-full rounded-md border border-gray-300 box-border bg-white pl-2.5 pr-16 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                                />
+                                <button
+                                    class="absolute right-8 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700"
+                                    type="button"
+                                    :aria-label="showInterfacePrivateKey ? '隐藏私钥' : '显示私钥'"
+                                    :title="showInterfacePrivateKey ? '隐藏私钥' : '显示私钥'"
+                                    @click="showInterfacePrivateKey = !showInterfacePrivateKey"
+                                >
+                                    <svg
+                                        v-if="showInterfacePrivateKey"
+                                        viewBox="0 0 20 20"
+                                        class="h-4 w-4"
+                                        fill="none"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z"
+                                            stroke="currentColor"
+                                            stroke-width="1.6"
+                                        />
+                                        <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6" />
+                                    </svg>
+                                    <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                        <path
+                                            d="M3.5 4.5l13 11"
+                                            stroke="currentColor"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                        />
+                                        <path
+                                            d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9"
+                                            stroke="currentColor"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                        <path
+                                            d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9"
+                                            stroke="currentColor"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                    </svg>
+                                </button>
+                                <button
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700"
+                                    type="button"
+                                    title="重新生成密钥对"
+                                    aria-label="重新生成密钥对"
+                                    @click="generateKeys"
+                                >
+                                    <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                        <path
+                                            d="M16 10a6 6 0 1 1-1.4-3.8"
+                                            stroke="currentColor"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                        />
+                                        <path
+                                            d="M15.5 3.5v3.5H12"
+                                            stroke="currentColor"
+                                            stroke-width="1.6"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold text-gray-500">
+                                PublicKey (公钥 - 由私钥自动生成)
+                            </label>
+                            <div class="flex items-center gap-1.5">
+                                <input
+                                    type="text"
+                                    v-model="config.publicKey"
+                                    readonly
+                                    class="h-9 min-w-0 flex-1 cursor-not-allowed rounded-md border border-gray-300 box-border bg-gray-100 px-2.5 font-mono text-sm text-gray-500 transition-colors focus:outline-none"
+                                />
+                                <button
+                                    class="h-9 shrink-0 cursor-pointer rounded-md border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                                    type="button"
+                                    @click="copyPublicKey"
+                                >
+                                    复制
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+                    <h3 class="text-sm font-semibold text-gray-700">路由规则</h3>
+
+                    <div class="mt-1.5 divide-y divide-gray-200">
+                        <div class="pb-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <button
+                                    type="button"
+                                    class="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-gray-600 transition-colors hover:text-black"
+                                    :aria-expanded="postUpExpanded"
+                                    @click="postUpExpanded = !postUpExpanded"
+                                >
+                                    <svg
+                                        viewBox="0 0 20 20"
+                                        class="h-4 w-4 transition-transform"
+                                        :class="postUpExpanded ? 'rotate-90' : ''"
+                                        fill="none"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            d="M8 5l5 5-5 5"
+                                            stroke="currentColor"
+                                            stroke-width="1.8"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                    </svg>
+                                    PostUp
+                                    <span
+                                        class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-500 ring-1 ring-gray-200"
+                                    >
+                                        {{ config.postUp.length }}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="shrink-0 cursor-pointer rounded border border-dashed border-gray-300 bg-white px-2 py-0.5 text-xs font-semibold text-gray-500 transition-colors hover:border-black hover:text-black"
+                                    @click="addPostUp"
+                                >
+                                    + 添加规则
+                                </button>
+                            </div>
+                            <div v-show="postUpExpanded" ref="postUpListRef" class="mt-2 space-y-1.5">
+                                <div
+                                    v-for="(_, index) in config.postUp"
+                                    :key="'up' + index"
+                                    data-sortable-item
+                                    class="flex items-center gap-1.5"
+                                >
+                                    <button
+                                        type="button"
+                                        data-drag-handle
+                                        class="shrink-0 cursor-grab rounded p-1 text-gray-300 transition-colors hover:bg-white hover:text-gray-500 focus-visible:ring-1 focus-visible:ring-sky-400 focus-visible:outline-none"
+                                        title="拖动调整顺序，也可以用上下方向键"
+                                        :aria-label="`第 ${index + 1} 条 PostUp 规则，可拖动或用上下方向键调整顺序`"
+                                        @keydown.up.prevent="moveItemByKeyboard(config.postUp, -1, $event)"
+                                        @keydown.down.prevent="moveItemByKeyboard(config.postUp, 1, $event)"
+                                    >
+                                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+                                            <circle cx="7" cy="4" r="1.3" />
+                                            <circle cx="13" cy="4" r="1.3" />
+                                            <circle cx="7" cy="10" r="1.3" />
+                                            <circle cx="13" cy="10" r="1.3" />
+                                            <circle cx="7" cy="16" r="1.3" />
+                                            <circle cx="13" cy="16" r="1.3" />
+                                        </svg>
+                                    </button>
+                                    <input
+                                        type="text"
+                                        v-model="config.postUp[index]"
+                                        class="h-9 min-w-0 flex-1 rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="shrink-0 cursor-pointer rounded p-1 text-gray-400 transition-colors hover:bg-white hover:text-red-600"
+                                        :aria-label="`删除第 ${index + 1} 条 PostUp 规则`"
+                                        title="删除"
+                                        @click="removePostUp(index)"
+                                    >
+                                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                            <path
+                                                d="M5.5 5.5l9 9m0-9l-9 9"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                stroke-linecap="round"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p v-if="!config.postUp.length" class="px-1 text-xs text-gray-400">
+                                    暂无规则，点击右上角「+ 添加规则」。
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 pb-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <button
+                                    type="button"
+                                    class="flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-gray-600 transition-colors hover:text-black"
+                                    :aria-expanded="postDownExpanded"
+                                    @click="postDownExpanded = !postDownExpanded"
+                                >
+                                    <svg
+                                        viewBox="0 0 20 20"
+                                        class="h-4 w-4 transition-transform"
+                                        :class="postDownExpanded ? 'rotate-90' : ''"
+                                        fill="none"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            d="M8 5l5 5-5 5"
+                                            stroke="currentColor"
+                                            stroke-width="1.8"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                    </svg>
+                                    PostDown
+                                    <span
+                                        class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-500 ring-1 ring-gray-200"
+                                    >
+                                        {{ config.postDown.length }}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="shrink-0 cursor-pointer rounded border border-dashed border-gray-300 bg-white px-2 py-0.5 text-xs font-semibold text-gray-500 transition-colors hover:border-black hover:text-black"
+                                    @click="addPostDown"
+                                >
+                                    + 添加规则
+                                </button>
+                            </div>
+                            <div v-show="postDownExpanded" ref="postDownListRef" class="mt-2 space-y-1.5">
+                                <div
+                                    v-for="(_, index) in config.postDown"
+                                    :key="'down' + index"
+                                    data-sortable-item
+                                    class="flex items-center gap-1.5"
+                                >
+                                    <button
+                                        type="button"
+                                        data-drag-handle
+                                        class="shrink-0 cursor-grab rounded p-1 text-gray-300 transition-colors hover:bg-white hover:text-gray-500 focus-visible:ring-1 focus-visible:ring-sky-400 focus-visible:outline-none"
+                                        title="拖动调整顺序，也可以用上下方向键"
+                                        :aria-label="`第 ${index + 1} 条 PostDown 规则，可拖动或用上下方向键调整顺序`"
+                                        @keydown.up.prevent="moveItemByKeyboard(config.postDown, -1, $event)"
+                                        @keydown.down.prevent="moveItemByKeyboard(config.postDown, 1, $event)"
+                                    >
+                                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+                                            <circle cx="7" cy="4" r="1.3" />
+                                            <circle cx="13" cy="4" r="1.3" />
+                                            <circle cx="7" cy="10" r="1.3" />
+                                            <circle cx="13" cy="10" r="1.3" />
+                                            <circle cx="7" cy="16" r="1.3" />
+                                            <circle cx="13" cy="16" r="1.3" />
+                                        </svg>
+                                    </button>
+                                    <input
+                                        type="text"
+                                        v-model="config.postDown[index]"
+                                        class="h-9 min-w-0 flex-1 rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="shrink-0 cursor-pointer rounded p-1 text-gray-400 transition-colors hover:bg-white hover:text-red-600"
+                                        :aria-label="`删除第 ${index + 1} 条 PostDown 规则`"
+                                        title="删除"
+                                        @click="removePostDown(index)"
+                                    >
+                                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                            <path
+                                                d="M5.5 5.5l9 9m0-9l-9 9"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                stroke-linecap="round"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p v-if="!config.postDown.length" class="px-1 text-xs text-gray-400">
+                                    暂无规则，点击右上角「+ 添加规则」。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
 
-            <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600">Address (主机 IP)</label>
-                <div class="flex items-center gap-2">
-                    <input
-                        type="text"
-                        v-model="config.host"
-                        placeholder="例如: 10.8.0.1"
-                        class="min-w-0 flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                    />
-                    <span class="shrink-0 rounded-md bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-500">
-                        /24
+            <div class="mt-4 mb-2 flex items-center justify-between gap-2 border-b border-gray-200 pb-2">
+                <h2 class="text-base font-semibold">
+                    对等节点 (Peers)
+                    <span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-500">
+                        {{ config.peers.length }}
                     </span>
-                </div>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600">ListenPort (监听端口)</label>
-                <input
-                    type="number"
-                    v-model.number="config.port"
-                    class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                />
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600">MTU</label>
-                <input
-                    type="number"
-                    v-model.number="config.mtu"
-                    class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                />
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600">PrivateKey (私钥)</label>
-                <div class="relative">
-                    <input
-                        :type="showInterfacePrivateKey ? 'text' : 'password'"
-                        v-model="config.privateKey"
-                        @input="derivePublicKey"
-                        class="w-full p-2.5 pr-16 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                    />
-                    <button
-                        class="absolute right-10 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
-                        type="button"
-                        :aria-label="showInterfacePrivateKey ? '隐藏私钥' : '显示私钥'"
-                        :title="showInterfacePrivateKey ? '隐藏私钥' : '显示私钥'"
-                        @click="showInterfacePrivateKey = !showInterfacePrivateKey"
-                    >
-                        <svg
-                            v-if="showInterfacePrivateKey"
-                            viewBox="0 0 20 20"
-                            class="h-4 w-4"
-                            fill="none"
-                            aria-hidden="true"
-                        >
-                            <path
-                                d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z"
-                                stroke="currentColor"
-                                stroke-width="1.6"
-                            />
-                            <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6" />
-                        </svg>
-                        <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                            <path d="M3.5 4.5l13 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-                            <path
-                                d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9"
-                                stroke="currentColor"
-                                stroke-width="1.6"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                            <path
-                                d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9"
-                                stroke="currentColor"
-                                stroke-width="1.6"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </button>
-                    <button
-                        class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
-                        type="button"
-                        title="重新生成密钥对"
-                        aria-label="重新生成密钥对"
-                        @click="generateKeys"
-                    >
-                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                            <path
-                                d="M16 10a6 6 0 1 1-1.4-3.8"
-                                stroke="currentColor"
-                                stroke-width="1.6"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M15.5 3.5v3.5H12"
-                                stroke="currentColor"
-                                stroke-width="1.6"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-semibold mb-1.5 text-gray-600"
-                    >PublicKey (公钥 - 由私钥自动生成)</label
-                >
-                <div class="flex items-center gap-2">
-                    <input
-                        type="text"
-                        v-model="config.publicKey"
-                        readonly
-                        class="min-w-0 flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none bg-gray-100 text-gray-500 cursor-not-allowed"
-                    />
-                    <button
-                        class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
-                        type="button"
-                        @click="copyPublicKey"
-                    >
-                        复制
-                    </button>
-                </div>
-            </div>
-
-            <h3 class="text-base font-semibold my-4 text-gray-600">PostUp 规则</h3>
-            <div class="mb-5">
-                <div class="flex gap-2 mb-2.5 items-center" v-for="(_, index) in config.postUp" :key="'up' + index">
-                    <input
-                        type="text"
-                        v-model="config.postUp[index]"
-                        class="flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                    />
-                    <button
-                        class="px-3 py-1.5 text-red-600 border border-red-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-red-600 hover:text-white hover:border-red-600"
-                        @click="removePostUp(index)"
-                    >
-                        删除
-                    </button>
-                </div>
+                </h2>
                 <button
-                    class="w-full px-4 py-2 bg-white border border-dashed border-gray-300 rounded-md cursor-pointer text-sm font-semibold transition-colors text-gray-600 mt-1 hover:border-black hover:text-black"
-                    @click="addPostUp"
-                >
-                    + 添加 PostUp 规则
-                </button>
-            </div>
-
-            <h3 class="text-base font-semibold my-4 text-gray-600">PostDown 规则</h3>
-            <div class="mb-5">
-                <div class="flex gap-2 mb-2.5 items-center" v-for="(_, index) in config.postDown" :key="'down' + index">
-                    <input
-                        type="text"
-                        v-model="config.postDown[index]"
-                        class="flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                    />
-                    <button
-                        class="px-3 py-1.5 text-red-600 border border-red-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-red-600 hover:text-white hover:border-red-600"
-                        @click="removePostDown(index)"
-                    >
-                        删除
-                    </button>
-                </div>
-                <button
-                    class="w-full px-4 py-2 bg-white border border-dashed border-gray-300 rounded-md cursor-pointer text-sm font-semibold transition-colors text-gray-600 mt-1 hover:border-black hover:text-black"
-                    @click="addPostDown"
-                >
-                    + 添加 PostDown 规则
-                </button>
-            </div>
-
-            <div class="mb-4 flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
-                <h2 class="mt-0 text-xl font-semibold">对等节点 (Peers)</h2>
-                <button
-                    class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                    class="h-8 shrink-0 cursor-pointer rounded border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
                     type="button"
                     @click="regenerateAllPeerKeys"
                 >
                     重新生成所有密钥
                 </button>
             </div>
-            <div
-                class="relative mb-4 overflow-hidden rounded-lg border p-5 pr-17 shadow-sm transition-colors"
-                :class="[
-                    PEER_BACKGROUND_COLORS[index % PEER_BACKGROUND_COLORS.length] ?? 'bg-white',
-                    hasPeerIssue(peer) ? 'border-red-400 ring-2 ring-red-200' : 'border-gray-200',
-                    draggedPeerIndex === index ? 'opacity-60' : '',
-                    draggedPeerIndex !== null && draggedPeerIndex !== index && dropTargetIndex === index
-                        ? 'ring-2 ring-sky-300'
-                        : '',
-                ]"
-                v-for="(peer, index) in config.peers"
-                :key="peer.id"
-                @dragover.prevent="onPeerDragOver(index, $event)"
-                @drop="onPeerDrop(index, $event)"
-            >
+
+            <div ref="peerListRef" class="space-y-2">
                 <div
-                    class="group -mx-5 -mt-5 mb-4 flex cursor-pointer items-center justify-between gap-3 border-b border-dashed border-gray-200 px-5 pb-2.5 pt-5 transition-colors hover:border-sky-300 hover:bg-sky-100"
-                    role="button"
-                    tabindex="0"
-                    @click="peer.expanded = !peer.expanded"
-                    @keydown.enter.prevent="peer.expanded = !peer.expanded"
-                    @keydown.space.prevent="peer.expanded = !peer.expanded"
+                    class="overflow-hidden rounded-lg border shadow-sm transition-colors"
+                    :class="[
+                        PEER_BACKGROUND_COLORS[index % PEER_BACKGROUND_COLORS.length] ?? 'bg-white',
+                        hasPeerIssue(peer) ? 'border-red-400 ring-1 ring-red-200' : 'border-gray-200',
+                    ]"
+                    v-for="(peer, index) in config.peers"
+                    :key="peer.id"
+                    data-sortable-item
                 >
-                    <span class="flex min-w-0 items-center gap-1.5">
-                        <span
-                            class="shrink-0 cursor-grab rounded p-1 text-gray-400 transition-colors hover:bg-gray-200/70 hover:text-gray-600"
-                            title="拖动调整节点顺序"
-                            :draggable="true"
-                            @dragstart="onPeerDragStart(index, $event)"
-                            @dragend="onPeerDragEnd"
+                    <div
+                        class="group flex cursor-pointer items-center gap-1.5 px-2.5 py-2 transition-colors hover:bg-sky-100"
+                        role="button"
+                        tabindex="0"
+                        @click="peer.expanded = !peer.expanded"
+                        @keydown.enter.prevent="peer.expanded = !peer.expanded"
+                        @keydown.space.prevent="peer.expanded = !peer.expanded"
+                    >
+                        <button
+                            type="button"
+                            data-drag-handle
+                            class="shrink-0 cursor-grab rounded p-1 text-gray-400 transition-colors hover:bg-gray-200/70 hover:text-gray-600 focus-visible:ring-1 focus-visible:ring-sky-400 focus-visible:outline-none"
+                            title="拖动调整节点顺序，也可以用上下方向键"
+                            :aria-label="`调整节点 ${getPeerLabel(peer, index)} 的顺序`"
                             @click.stop
+                            @keydown.up.prevent.stop="moveItemByKeyboard(config.peers, -1, $event)"
+                            @keydown.down.prevent.stop="moveItemByKeyboard(config.peers, 1, $event)"
+                            @keydown.enter.stop
+                            @keydown.space.stop
                         >
                             <svg viewBox="0 0 20 20" class="h-4 w-4" fill="currentColor" aria-hidden="true">
-                                <circle cx="6.5" cy="4" r="1.2" />
-                                <circle cx="13.5" cy="4" r="1.2" />
-                                <circle cx="6.5" cy="10" r="1.2" />
-                                <circle cx="13.5" cy="10" r="1.2" />
-                                <circle cx="6.5" cy="16" r="1.2" />
-                                <circle cx="13.5" cy="16" r="1.2" />
+                                <circle cx="7" cy="4" r="1.3" />
+                                <circle cx="13" cy="4" r="1.3" />
+                                <circle cx="7" cy="10" r="1.3" />
+                                <circle cx="13" cy="10" r="1.3" />
+                                <circle cx="7" cy="16" r="1.3" />
+                                <circle cx="13" cy="16" r="1.3" />
                             </svg>
+                        </button>
+                        <span class="w-4 shrink-0 text-center text-xs font-semibold text-gray-400">
+                            {{ index + 1 }}
                         </span>
                         <span
-                            class="min-w-0 text-sm font-semibold text-gray-600 transition-colors group-hover:text-gray-800"
+                            class="w-12 shrink-0 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-center font-mono text-xs text-gray-600"
+                            title="主机号"
                         >
-                            {{ getPeerDisplayName(peer, index) }}
+                            {{ getPeerHostPart(peer) }}
+                        </span>
+                        <span
+                            class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-600 transition-colors group-hover:text-gray-800"
+                        >
+                            {{ getPeerLabel(peer, index) }}
                         </span>
                         <span
                             v-if="getPeerIssueLabel(peer)"
@@ -282,243 +459,13 @@
                         >
                             {{ getPeerIssueLabel(peer) }}
                         </span>
-                    </span>
-                    <span class="flex shrink-0 items-center gap-1">
-                        <button
-                            class="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
-                            type="button"
-                            @click.stop="peer.expanded = !peer.expanded"
-                            aria-label="切换节点展开状态"
+                        <svg
+                            viewBox="0 0 20 20"
+                            class="h-4 w-4 shrink-0 text-gray-400 transition-transform"
+                            :class="peer.expanded ? '' : '-rotate-90'"
+                            fill="none"
+                            aria-hidden="true"
                         >
-                            <svg
-                                v-if="peer.expanded"
-                                viewBox="0 0 20 20"
-                                class="h-4 w-4"
-                                fill="none"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M5 12l5-5 5 5"
-                                    stroke="currentColor"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                            </svg>
-                            <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                                <path
-                                    d="M5 8l5 5 5-5"
-                                    stroke="currentColor"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                />
-                            </svg>
-                        </button>
-                    </span>
-                </div>
-
-                <div v-if="peer.expanded">
-                    <div
-                        v-if="getPeerIssueMessage(peer)"
-                        class="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700"
-                    >
-                        {{ getPeerIssueMessage(peer) }}
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">节点备注</label>
-                        <input
-                            type="text"
-                            v-model="peer.name"
-                            placeholder="例如: 手机 / 笔记本"
-                            class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                        />
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">PrivateKey (私钥)</label>
-                        <div class="relative">
-                            <input
-                                :type="peer.showPrivateKey ? 'text' : 'password'"
-                                v-model="peer.privateKey"
-                                @input="derivePeerPublicKey(peer)"
-                                class="w-full p-2.5 pr-16 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                            />
-                            <button
-                                class="absolute right-10 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
-                                type="button"
-                                :aria-label="peer.showPrivateKey ? '隐藏私钥' : '显示私钥'"
-                                :title="peer.showPrivateKey ? '隐藏私钥' : '显示私钥'"
-                                @click="peer.showPrivateKey = !peer.showPrivateKey"
-                            >
-                                <svg
-                                    v-if="peer.showPrivateKey"
-                                    viewBox="0 0 20 20"
-                                    class="h-4 w-4"
-                                    fill="none"
-                                    aria-hidden="true"
-                                >
-                                    <path
-                                        d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z"
-                                        stroke="currentColor"
-                                        stroke-width="1.6"
-                                    />
-                                    <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6" />
-                                </svg>
-                                <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                                    <path
-                                        d="M3.5 4.5l13 11"
-                                        stroke="currentColor"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                    />
-                                    <path
-                                        d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9"
-                                        stroke="currentColor"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                    <path
-                                        d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9"
-                                        stroke="currentColor"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                </svg>
-                            </button>
-                            <button
-                                class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 transition-colors hover:text-gray-700"
-                                type="button"
-                                title="重新生成密钥对"
-                                aria-label="重新生成密钥对"
-                                @click="generatePeerKeys(peer)"
-                            >
-                                <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                                    <path
-                                        d="M16 10a6 6 0 1 1-1.4-3.8"
-                                        stroke="currentColor"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                    />
-                                    <path
-                                        d="M15.5 3.5v3.5H12"
-                                        stroke="currentColor"
-                                        stroke-width="1.6"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">PublicKey (节点公钥)</label>
-                        <div class="flex items-center gap-2">
-                            <input
-                                type="text"
-                                v-model="peer.publicKey"
-                                readonly
-                                class="min-w-0 flex-1 p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none bg-gray-100 text-gray-500 cursor-not-allowed"
-                            />
-                            <button
-                                class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
-                                type="button"
-                                @click="copyPeerPublicKey(peer)"
-                            >
-                                复制
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-semibold mb-1.5 text-gray-600">主机号</label>
-                        <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            v-model.number="peer.hostPart"
-                            placeholder="例如: 101"
-                            class="w-full p-2.5 border border-gray-300 rounded-md box-border text-sm font-mono transition-colors focus:outline-none focus:border-black"
-                        />
-                    </div>
-                </div>
-
-                <div class="mt-4 flex justify-end gap-2">
-                    <button
-                        class="px-3 py-1.5 text-gray-700 border border-gray-300 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-gray-800 hover:text-white hover:border-gray-800 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
-                        type="button"
-                        :disabled="hasPeerIssue(peer)"
-                        :title="
-                            hasPeerIssue(peer)
-                                ? '该节点配置有误，请先修正'
-                                : '复制该节点的 [Peer] 配置，粘贴到中继服务器的 wg0.conf'
-                        "
-                        @click="copyRelayPeerBlock(peer)"
-                    >
-                        复制中继配置
-                    </button>
-                    <button
-                        class="px-3 py-1.5 text-sky-700 border border-sky-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-sky-700 hover:text-white hover:border-sky-700 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-300"
-                        type="button"
-                        :disabled="hasPeerIssue(peer)"
-                        :title="hasPeerIssue(peer) ? '该节点配置有误，请先修正' : '复制该节点的客户端配置'"
-                        @click="copyClientConfig(peer)"
-                    >
-                        复制客户端配置
-                    </button>
-                    <button
-                        class="px-3 py-1.5 text-red-600 border border-red-200 bg-white rounded-md cursor-pointer text-xs font-semibold transition-colors hover:bg-red-600 hover:text-white hover:border-red-600"
-                        type="button"
-                        @click="removePeer(index)"
-                    >
-                        删除此节点
-                    </button>
-                </div>
-                <div
-                    class="absolute inset-y-0 right-0 flex w-12 flex-col border-l border-gray-200 bg-gray-200/40"
-                    role="group"
-                    aria-label="调整节点顺序"
-                >
-                    <span
-                        class="flex w-full items-center justify-center text-xs font-semibold leading-none text-gray-500"
-                        style="flex: 1 1 0%"
-                        aria-label="节点序号"
-                    >
-                        {{ index + 1 }}
-                    </span>
-                    <button
-                        type="button"
-                        class="flex w-full cursor-pointer items-center justify-center text-gray-400 transition-colors hover:bg-gray-300/60 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300"
-                        style="flex: 2 2 0%"
-                        :disabled="index === 0"
-                        :aria-label="`上移节点 ${peer.name.trim() || index + 1}`"
-                        title="上移"
-                        @click.stop="movePeer(index, index - 1)"
-                        @keydown.enter.stop
-                        @keydown.space.stop
-                    >
-                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
-                            <path
-                                d="M5 12l5-5 5 5"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            />
-                        </svg>
-                    </button>
-                    <button
-                        type="button"
-                        class="flex w-full cursor-pointer items-center justify-center text-gray-400 transition-colors hover:bg-gray-300/60 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300"
-                        style="flex: 2 2 0%"
-                        :disabled="index === config.peers.length - 1"
-                        :aria-label="`下移节点 ${peer.name.trim() || index + 1}`"
-                        title="下移"
-                        @click.stop="movePeer(index, index + 1)"
-                        @keydown.enter.stop
-                        @keydown.space.stop
-                    >
-                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
                             <path
                                 d="M5 8l5 5 5-5"
                                 stroke="currentColor"
@@ -527,24 +474,190 @@
                                 stroke-linejoin="round"
                             />
                         </svg>
-                    </button>
+                    </div>
+
+                    <div v-show="peer.expanded" class="border-t border-dashed border-gray-200 px-2.5 pb-2.5 pt-2.5">
+                        <div
+                            v-if="getPeerIssueMessage(peer)"
+                            class="mb-2.5 rounded border border-red-300 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700"
+                        >
+                            {{ getPeerIssueMessage(peer) }}
+                        </div>
+
+                        <div class="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-2.5">
+                            <div>
+                                <label class="mb-1 block text-xs font-semibold text-gray-500">主机号</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    v-model.number="peer.hostPart"
+                                    placeholder="101"
+                                    class="h-9 w-full rounded-md border border-gray-300 box-border px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs font-semibold text-gray-500">节点备注</label>
+                                <input
+                                    type="text"
+                                    v-model="peer.name"
+                                    placeholder="例如: 手机 / 笔记本"
+                                    class="h-9 w-full rounded-md border border-gray-300 box-border px-2.5 text-sm transition-colors focus:border-black focus:outline-none"
+                                />
+                            </div>
+
+                            <div class="col-span-2">
+                                <label class="mb-1 block text-xs font-semibold text-gray-500">
+                                    PrivateKey (私钥)
+                                </label>
+                                <div class="relative">
+                                    <input
+                                        :type="peer.showPrivateKey ? 'text' : 'password'"
+                                        v-model="peer.privateKey"
+                                        @input="derivePeerPublicKey(peer)"
+                                        class="h-9 w-full rounded-md border border-gray-300 box-border pl-2.5 pr-16 font-mono text-sm transition-colors focus:border-black focus:outline-none"
+                                    />
+                                    <button
+                                        class="absolute right-8 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700"
+                                        type="button"
+                                        :aria-label="peer.showPrivateKey ? '隐藏私钥' : '显示私钥'"
+                                        :title="peer.showPrivateKey ? '隐藏私钥' : '显示私钥'"
+                                        @click="peer.showPrivateKey = !peer.showPrivateKey"
+                                    >
+                                        <svg
+                                            v-if="peer.showPrivateKey"
+                                            viewBox="0 0 20 20"
+                                            class="h-4 w-4"
+                                            fill="none"
+                                            aria-hidden="true"
+                                        >
+                                            <path
+                                                d="M2.5 10s2.7-5.5 7.5-5.5S17.5 10 17.5 10s-2.7 5.5-7.5 5.5S2.5 10 2.5 10Z"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                            />
+                                            <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.6" />
+                                        </svg>
+                                        <svg v-else viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                            <path
+                                                d="M3.5 4.5l13 11"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                stroke-linecap="round"
+                                            />
+                                            <path
+                                                d="M4.5 10s2.5-5 5.5-5c1.1 0 2.1.4 3 .9"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            />
+                                            <path
+                                                d="M15.5 10s-2.5 5-5.5 5c-1.1 0-2.1-.4-3-.9"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded p-0.5 text-gray-400 transition-colors hover:text-gray-700"
+                                        type="button"
+                                        title="重新生成密钥对"
+                                        aria-label="重新生成密钥对"
+                                        @click="generatePeerKeys(peer)"
+                                    >
+                                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                            <path
+                                                d="M16 10a6 6 0 1 1-1.4-3.8"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                stroke-linecap="round"
+                                            />
+                                            <path
+                                                d="M15.5 3.5v3.5H12"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="col-span-2">
+                                <label class="mb-1 block text-xs font-semibold text-gray-500">
+                                    PublicKey (节点公钥)
+                                </label>
+                                <div class="flex items-center gap-1.5">
+                                    <input
+                                        type="text"
+                                        v-model="peer.publicKey"
+                                        readonly
+                                        class="h-9 min-w-0 flex-1 cursor-not-allowed rounded-md border border-gray-300 box-border bg-gray-100 px-2.5 font-mono text-sm text-gray-500 transition-colors focus:outline-none"
+                                    />
+                                    <button
+                                        class="h-9 shrink-0 cursor-pointer rounded-md border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                                        type="button"
+                                        @click="copyPeerPublicKey(peer)"
+                                    >
+                                        复制
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-2.5 flex justify-end gap-1.5">
+                            <button
+                                class="h-8 cursor-pointer rounded border border-gray-300 bg-white px-2.5 text-sm font-semibold text-gray-700 transition-colors hover:border-gray-800 hover:bg-gray-800 hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
+                                type="button"
+                                :disabled="hasPeerIssue(peer)"
+                                :title="
+                                    hasPeerIssue(peer)
+                                        ? '该节点配置有误，请先修正'
+                                        : '复制该节点的 [Peer] 配置，粘贴到中继服务器的 wg0.conf'
+                                "
+                                @click="copyRelayPeerBlock(peer)"
+                            >
+                                复制中继配置
+                            </button>
+                            <button
+                                class="h-8 cursor-pointer rounded border border-sky-200 bg-white px-2.5 text-sm font-semibold text-sky-700 transition-colors hover:border-sky-700 hover:bg-sky-700 hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-300"
+                                type="button"
+                                :disabled="hasPeerIssue(peer)"
+                                :title="hasPeerIssue(peer) ? '该节点配置有误，请先修正' : '复制该节点的客户端配置'"
+                                @click="copyClientConfig(peer)"
+                            >
+                                复制客户端配置
+                            </button>
+                            <button
+                                class="h-8 cursor-pointer rounded border border-red-200 bg-white px-2.5 text-sm font-semibold text-red-600 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
+                                type="button"
+                                @click="removePeer(index)"
+                            >
+                                删除此节点
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <button
-                class="w-full p-3 bg-white border border-dashed border-gray-300 rounded-md cursor-pointer text-sm font-semibold transition-colors text-gray-600 mt-1 hover:border-black hover:text-black"
+                class="mt-2 h-9 w-full cursor-pointer rounded-md border border-dashed border-gray-300 bg-white text-sm font-semibold text-gray-600 transition-colors hover:border-black hover:text-black"
                 @click="addPeer"
             >
                 + 添加新节点
             </button>
-            <div class="h-12"></div>
+            <div class="h-6"></div>
         </div>
 
-        <div class="w-1/2 p-8 bg-gray-50 overflow-y-auto box-border flex flex-col min-h-0">
-            <div class="mb-4 flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
-                <h2 class="mt-0 text-xl font-semibold">wg.conf 预览</h2>
+        <div class="flex w-1/2 min-h-0 flex-col bg-gray-50 box-border">
+            <div class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 pb-2 pt-4">
+                <h2 class="text-base font-semibold">wg.conf 预览</h2>
                 <button
-                    class="shrink-0 rounded-md border border-sky-600 bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
+                    class="h-8 shrink-0 cursor-pointer rounded border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
                     :disabled="hasConfigError"
                     :title="hasConfigError ? '配置有误，请先修正标红的项' : '复制 wg0.conf'"
                     @click="copyGeneratedConfig"
@@ -553,11 +666,11 @@
                 </button>
             </div>
             <pre
-                class="bg-white p-5 rounded-lg border border-gray-200 font-mono text-sm leading-relaxed overflow-x-auto grow whitespace-pre-wrap wrap-break-word shadow-inner"
+                class="mx-4 mb-3 mt-3 min-h-0 grow overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg border border-gray-200 bg-white p-3.5 font-mono text-sm leading-6 shadow-inner"
                 >{{ generatedConfig }}</pre>
-            <div class="mt-4 flex justify-end">
+            <div class="flex justify-end px-4 pb-4">
                 <button
-                    class="rounded-md border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
+                    class="h-9 cursor-pointer rounded-md border border-sky-600 bg-sky-600 px-3.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
                     type="button"
                     :disabled="hasConfigError"
                     :title="hasConfigError ? '配置有误，请先修正标红的项' : '下载配置包 (wg0.conf + 各节点客户端配置)'"
@@ -571,8 +684,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import JSZip from "jszip";
+import Sortable, { type SortableEvent } from "sortablejs";
 import nacl from "tweetnacl";
 
 interface Peer {
@@ -660,9 +774,15 @@ const decodeBase64 = (str: string): Uint8Array | null => {
 
 const config = reactive<WgConfig>(createDefaultConfig());
 const showInterfacePrivateKey = ref(false);
-const draggedPeerIndex = ref<number | null>(null);
-const dropTargetIndex = ref<number | null>(null);
 const importFileInputRef = ref<HTMLInputElement | null>(null);
+
+// 规则列表默认折叠，把空间让给接口字段和节点；数量在标题上仍然看得到。
+const postUpExpanded = ref(false);
+const postDownExpanded = ref(false);
+const postUpListRef = ref<HTMLElement | null>(null);
+const postDownListRef = ref<HTMLElement | null>(null);
+const peerListRef = ref<HTMLElement | null>(null);
+const sortableInstances: Sortable[] = [];
 
 let peerIdCounter = 0;
 
@@ -793,22 +913,82 @@ const addPeer = () => {
 };
 const removePeer = (index: number) => config.peers.splice(index, 1);
 
-const movePeer = (from: number, to: number) => {
-    const peerCount = config.peers.length;
-    const target = Math.max(0, Math.min(peerCount - 1, to));
-    if (peerCount < 2 || from === target) return;
+const moveItem = <T,>(items: T[], from: number, to: number): void => {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
 
-    const [movedPeer] = config.peers.splice(from, 1);
-    if (movedPeer) {
-        config.peers.splice(target, 0, movedPeer);
+    const [moved] = items.splice(from, 1);
+    if (moved !== undefined) {
+        items.splice(to, 0, moved);
     }
 };
 
-const getPeerDisplayName = (peer: Peer, index: number): string => {
-    const label = peer.name.trim() || `节点 #${index + 1}`;
-    const hostPart = getNumericValue(peer.hostPart);
+// 拖拽之外的键盘操作：规则列表用的是下标 key，重排后同一个 DOM 节点会留在原位，
+// 所以必须把焦点挪到新位置，否则连按方向键会一直搬动同一行。
+const moveItemByKeyboard = <T,>(items: T[], delta: number, event: KeyboardEvent): void => {
+    const row = (event.currentTarget as HTMLElement | null)?.closest("[data-sortable-item]");
+    const list = row?.parentElement;
+    if (!row || !list) return;
 
-    return hostPart === null ? label : `${label} (${hostPart})`;
+    const from = [...list.querySelectorAll("[data-sortable-item]")].indexOf(row);
+    if (from < 0) return;
+
+    const to = from + delta;
+    moveItem(items, from, to);
+
+    void nextTick(() => {
+        list.querySelectorAll<HTMLElement>("[data-drag-handle]")[to]?.focus();
+    });
+};
+
+// SortableJS 改的是真实 DOM，而列表的渲染权在 Vue。拖拽结束后先把 DOM 还原成拖动前的顺序，
+// 再改数据让 Vue 重新渲染；两边同时挪节点会撕开虚拟 DOM 和真实 DOM 的对应关系。
+const createSortableList = (element: HTMLElement | null, onReorder: (from: number, to: number) => void): void => {
+    if (!element) return;
+
+    let nextSibling: ChildNode | null = null;
+
+    sortableInstances.push(
+        Sortable.create(element, {
+            handle: "[data-drag-handle]",
+            draggable: "[data-sortable-item]",
+            animation: 150,
+            // 用鼠标事件自己实现拖拽，而不是浏览器的原生 HTML5 拖放：面板本身是滚动容器，
+            // 原生拖拽的预览图会被裁掉，各浏览器的表现也不一致。
+            forceFallback: true,
+            fallbackOnBody: true,
+            fallbackTolerance: 3,
+            ghostClass: "sortable-ghost",
+            chosenClass: "sortable-chosen",
+            fallbackClass: "sortable-fallback",
+            onStart: (event: SortableEvent) => {
+                nextSibling = event.item.nextSibling;
+            },
+            onEnd: (event: SortableEvent) => {
+                const from = event.oldDraggableIndex ?? event.oldIndex;
+                const to = event.newDraggableIndex ?? event.newIndex;
+
+                if (nextSibling && nextSibling.parentNode === event.from) {
+                    event.from.insertBefore(event.item, nextSibling);
+                } else {
+                    event.from.appendChild(event.item);
+                }
+                nextSibling = null;
+
+                if (from === undefined || to === undefined) return;
+                onReorder(from, to);
+            },
+        }),
+    );
+};
+
+const getPeerLabel = (peer: Peer, index: number): string => peer.name.trim() || `节点 #${index + 1}`;
+
+// 节点标题里主机号排在名字前面，占固定宽度，一列名字才能对齐。
+// 网段前缀对所有节点都一样，不用重复显示。
+const getPeerHostPart = (peer: Peer): string => {
+    const hostPart = getHostPart(peer);
+
+    return hostPart === null ? "—" : String(hostPart);
 };
 
 // 数字输入框被清空时 v-model.number 留下的是空字符串，而类型标注写的是 number | null，
@@ -1010,39 +1190,6 @@ const configIssues = computed((): string[] =>
 
 // 复制和下载产出的都是拿去直接使用的配置，只要有一处错误就整体禁用。
 const hasConfigError = computed((): boolean => configIssues.value.length > 0 || peerIssues.value.size > 0);
-
-const onPeerDragStart = (index: number, event: DragEvent) => {
-    draggedPeerIndex.value = index;
-    dropTargetIndex.value = index;
-
-    if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", index.toString());
-    }
-};
-
-const onPeerDragOver = (index: number, event: DragEvent) => {
-    if (draggedPeerIndex.value === null) return;
-
-    event.preventDefault();
-    dropTargetIndex.value = index;
-};
-
-const onPeerDrop = (index: number, event: DragEvent) => {
-    const from = draggedPeerIndex.value;
-    if (from !== null) {
-        event.preventDefault();
-        movePeer(from, index);
-    }
-
-    draggedPeerIndex.value = null;
-    dropTargetIndex.value = null;
-};
-
-const onPeerDragEnd = () => {
-    draggedPeerIndex.value = null;
-    dropTargetIndex.value = null;
-};
 
 const regenerateAllPeerKeys = () => {
     config.peers.forEach((peer) => {
@@ -1363,7 +1510,6 @@ const handleImportFile = async (event: Event) => {
 const generatedConfig = computed(() => {
     let conf = `[Interface]\n`;
     const hostBase = getHostBase(config.host);
-    const peerNetworkPrefix = getPeerNetworkPrefix(hostBase);
 
     if (config.relayServer.trim()) conf += `# ${config.relayServer.trim()}\n`;
     if (config.publicKey.trim()) conf += `# PublicKey = ${config.publicKey.trim()}\n`;
@@ -1386,7 +1532,7 @@ const generatedConfig = computed(() => {
     return conf;
 });
 
-onMounted(() => {
+onMounted(async () => {
     loadConfig();
 
     if (!config.privateKey) {
@@ -1394,6 +1540,17 @@ onMounted(() => {
     } else if (!config.publicKey) {
         derivePublicKey();
     }
+
+    // 列表容器用 v-show 折叠，始终留在 DOM 里，所以这里初始化一次就够了。
+    await nextTick();
+    createSortableList(postUpListRef.value, (from, to) => moveItem(config.postUp, from, to));
+    createSortableList(postDownListRef.value, (from, to) => moveItem(config.postDown, from, to));
+    createSortableList(peerListRef.value, (from, to) => moveItem(config.peers, from, to));
+});
+
+onBeforeUnmount(() => {
+    sortableInstances.forEach((instance) => instance.destroy());
+    sortableInstances.length = 0;
 });
 
 watch(
@@ -1404,3 +1561,21 @@ watch(
     { deep: true },
 );
 </script>
+
+<style scoped>
+/* 拖动中的占位元素 */
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+/* 鼠标下跟着光标走的克隆体（fallbackOnBody 时会挂到 body 上，克隆体会带着作用域属性） */
+.sortable-fallback {
+    cursor: grabbing;
+    box-shadow: 0 8px 20px rgb(15 23 42 / 0.2);
+}
+
+.sortable-chosen {
+    border-color: rgb(14 165 233);
+    box-shadow: 0 6px 16px rgb(15 23 42 / 0.16);
+}
+</style>
