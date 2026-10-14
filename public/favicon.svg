@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="HM Tools">
+    <defs>
+        <linearGradient id="hm-tile" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0ea5e9" />
+            <stop offset="1" stop-color="#0369a1" />
+        </linearGradient>
+        <!-- 开口扳手的钳口：在整圆上开一条平行槽 -->
+        <mask id="hm-jaw" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+            <rect width="64" height="64" fill="#000000" />
+            <circle cx="40.5" cy="23.5" r="13.5" fill="#ffffff" />
+            <rect x="-6" y="-4.5" width="26" height="9" fill="#000000" transform="translate(40.5 23.5) rotate(-45)" />
+        </mask>
+    </defs>
+    <rect width="64" height="64" rx="14" fill="url(#hm-tile)" />
+    <g fill="none" stroke="#ffffff" stroke-linecap="round">
+        <path d="M31.5 32.5L16.1 47.9" stroke-width="7.5" />
+        <circle cx="40.5" cy="23.5" r="9" stroke-width="7.4" mask="url(#hm-jaw)" />
+    </g>
+</svg>
