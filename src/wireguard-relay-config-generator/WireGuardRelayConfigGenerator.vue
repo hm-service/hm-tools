@@ -633,6 +633,19 @@
                                 复制客户端配置
                             </button>
                             <button
+                                class="h-8 cursor-pointer rounded border border-gray-300 bg-white px-2.5 text-sm font-semibold text-gray-700 transition-colors hover:border-gray-800 hover:bg-gray-800 hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-gray-50 disabled:hover:text-gray-300"
+                                type="button"
+                                :disabled="hasPeerIssue(peer)"
+                                :title="
+                                    hasPeerIssue(peer)
+                                        ? '该节点配置有误，请先修正'
+                                        : '显示客户端配置二维码，手机扫码即可导入'
+                                "
+                                @click="openPeerQr(peer, index)"
+                            >
+                                二维码
+                            </button>
+                            <button
                                 class="h-8 cursor-pointer rounded border border-red-200 bg-white px-2.5 text-sm font-semibold text-red-600 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
                                 type="button"
                                 @click="removePeer(index)"
@@ -680,6 +693,57 @@
                 </button>
             </div>
         </div>
+
+        <Teleport to="body">
+            <div
+                v-if="qrState"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-6"
+                @click.self="closePeerQr"
+            >
+                <div
+                    class="flex w-full max-w-sm flex-col items-center rounded-xl bg-white p-5 shadow-2xl"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="wg-peer-qr-title"
+                >
+                    <div class="mb-1 flex w-full items-center justify-between gap-3">
+                        <h2 id="wg-peer-qr-title" class="text-sm font-semibold text-gray-700">客户端配置二维码</h2>
+                        <button
+                            ref="qrCloseButtonRef"
+                            type="button"
+                            class="cursor-pointer rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:ring-1 focus-visible:ring-sky-400 focus-visible:outline-none"
+                            aria-label="关闭"
+                            title="关闭（Esc）"
+                            @click="closePeerQr"
+                        >
+                            <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none" aria-hidden="true">
+                                <path
+                                    d="M5.5 5.5l9 9m0-9l-9 9"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                />
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="mb-3 w-full truncate text-center font-mono text-xs text-gray-500">
+                        {{ qrState.title }}
+                    </p>
+                    <svg
+                        v-if="qrCode"
+                        :viewBox="`0 0 ${qrCode.size} ${qrCode.size}`"
+                        class="h-64 w-64 rounded-lg border border-gray-200 p-1"
+                        shape-rendering="crispEdges"
+                        role="img"
+                        :aria-label="`${qrState.title} 的客户端配置二维码`"
+                    >
+                        <rect :width="qrCode.size" :height="qrCode.size" fill="#ffffff" />
+                        <path :d="qrCode.path" fill="#000000" />
+                    </svg>
+                    <p class="mt-3 text-center text-xs text-gray-500">用 WireGuard 客户端「从二维码导入」扫描</p>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
@@ -688,6 +752,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import JSZip from "jszip";
 import Sortable, { type SortableEvent } from "sortablejs";
 import nacl from "tweetnacl";
+import { encode as encodeQrCode } from "uqr";
 
 interface Peer {
     id: number;
@@ -1316,6 +1381,71 @@ const copyClientConfig = async (peer: Peer) => {
     await navigator.clipboard.writeText(buildClientConfig(peer));
 };
 
+interface QrCode {
+    size: number;
+    path: string;
+}
+
+// 把二维码矩阵按行合并成一条 path（同色连续方格合成一段矩形），比几百个 rect 节点省得多。
+const encodeQr = (text: string): QrCode => {
+    const { size, data } = encodeQrCode(text, { ecc: "M", border: 4 });
+    let path = "";
+
+    for (let y = 0; y < size; y++) {
+        const row = data[y]!;
+
+        for (let x = 0; x < size;) {
+            if (!row[x]) {
+                x += 1;
+                continue;
+            }
+
+            let run = 1;
+            while (x + run < size && row[x + run]) run += 1;
+            path += `M${x} ${y}h${run}v1h-${run}z`;
+            x += run;
+        }
+    }
+
+    return { size, path };
+};
+
+// 内容是弹出时的一份快照：弹窗期间表单被遮住，没必要跟着响应式刷新。
+const qrState = ref<{ title: string; payload: string } | null>(null);
+const qrCode = computed(() => (qrState.value ? encodeQr(qrState.value.payload) : null));
+const qrCloseButtonRef = ref<HTMLButtonElement | null>(null);
+let qrTriggerElement: HTMLElement | null = null;
+
+const openPeerQr = (peer: Peer, index: number) => {
+    ensurePeerKeyPair(peer);
+    qrTriggerElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    qrState.value = {
+        title: `${getPeerHostPart(peer)} · ${getPeerLabel(peer, index)}`,
+        payload: buildClientConfig(peer),
+    };
+    void nextTick(() => qrCloseButtonRef.value?.focus());
+};
+
+const closePeerQr = () => {
+    qrState.value = null;
+    // 弹窗关掉后把焦点还给“二维码”按钮，键盘操作不会凭空回到页首。
+    qrTriggerElement?.focus();
+    qrTriggerElement = null;
+};
+
+const onQrKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") closePeerQr();
+};
+
+watch(qrState, (state) => {
+    if (state) {
+        window.addEventListener("keydown", onQrKeydown);
+        return;
+    }
+
+    window.removeEventListener("keydown", onQrKeydown);
+});
+
 const buildRelayPeerBlock = (peer: Peer): string => {
     const publicKey = peer.publicKey.trim();
     const hostPart = getHostPart(peer);
@@ -1551,6 +1681,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
     sortableInstances.forEach((instance) => instance.destroy());
     sortableInstances.length = 0;
+    window.removeEventListener("keydown", onQrKeydown);
 });
 
 watch(
