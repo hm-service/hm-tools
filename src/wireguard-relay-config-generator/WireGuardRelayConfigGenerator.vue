@@ -689,22 +689,9 @@
 
         <div class="flex w-1/2 min-h-0 flex-col bg-gray-50 box-border">
             <div class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 pb-2 pt-4">
-                <h2 class="text-base font-semibold">wg.conf 预览</h2>
+                <h2 class="text-base font-semibold">配置预览</h2>
                 <button
                     class="h-8 shrink-0 cursor-pointer rounded border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
-                    :disabled="hasConfigError"
-                    :title="hasConfigError ? '配置有误，请先修正标红的项' : '复制 wg0.conf'"
-                    @click="copyGeneratedConfig"
-                >
-                    复制
-                </button>
-            </div>
-            <pre
-                class="mx-4 mb-3 mt-3 min-h-0 grow overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg border border-gray-200 bg-white p-3.5 font-mono text-sm leading-6 shadow-inner"
-                >{{ generatedConfig }}</pre>
-            <div class="flex justify-end px-4 pb-4">
-                <button
-                    class="h-9 cursor-pointer rounded-md border border-sky-600 bg-sky-600 px-3.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:hover:border-gray-300 disabled:hover:bg-gray-300"
                     type="button"
                     :disabled="hasConfigError"
                     :title="hasConfigError ? '配置有误，请先修正标红的项' : '下载配置包 (wg0.conf + 各节点客户端配置)'"
@@ -712,6 +699,102 @@
                 >
                     下载配置包
                 </button>
+            </div>
+
+            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
+                <section class="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                    <div class="flex items-center gap-2 py-2 pl-3 pr-2">
+                        <button
+                            type="button"
+                            class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left focus-visible:outline-none"
+                            :aria-expanded="isConfigSectionExpanded('relay')"
+                            @click="toggleConfigSection('relay')"
+                        >
+                            <svg
+                                viewBox="0 0 20 20"
+                                class="h-4 w-4 shrink-0 text-gray-400 transition-transform"
+                                :class="isConfigSectionExpanded('relay') ? 'rotate-90' : ''"
+                                fill="none"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M8 5l5 5-5 5"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                            <span class="truncate text-sm font-semibold text-gray-700">中继节点</span>
+                            <span class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">
+                                wg0.conf
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            class="h-7 shrink-0 cursor-pointer rounded border border-sky-200 bg-white px-2 text-xs font-semibold text-sky-700 transition-colors hover:border-sky-700 hover:bg-sky-700 hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-300"
+                            :disabled="hasConfigError"
+                            :title="hasConfigError ? '配置有误，请先修正标红的项' : '复制 wg0.conf'"
+                            @click="copyGeneratedConfig"
+                        >
+                            复制
+                        </button>
+                    </div>
+                    <pre
+                        v-if="isConfigSectionExpanded('relay')"
+                        class="border-t border-gray-200 bg-gray-50/60 p-3 font-mono text-sm leading-6 whitespace-pre-wrap wrap-break-word"
+                        >{{ generatedConfig }}</pre>
+                </section>
+
+                <section
+                    v-for="(peer, index) in config.peers"
+                    :key="peer.id"
+                    class="overflow-hidden rounded-lg border border-gray-200 bg-white"
+                >
+                    <div class="flex items-center gap-2 py-2 pl-3 pr-2">
+                        <button
+                            type="button"
+                            class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left focus-visible:outline-none"
+                            :aria-expanded="isConfigSectionExpanded(`peer-${peer.id}`)"
+                            @click="toggleConfigSection(`peer-${peer.id}`)"
+                        >
+                            <svg
+                                viewBox="0 0 20 20"
+                                class="h-4 w-4 shrink-0 text-gray-400 transition-transform"
+                                :class="isConfigSectionExpanded(`peer-${peer.id}`) ? 'rotate-90' : ''"
+                                fill="none"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M8 5l5 5-5 5"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                />
+                            </svg>
+                            <span class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">
+                                {{ getPeerHostPart(peer) }}
+                            </span>
+                            <span class="truncate text-sm font-semibold text-gray-700">
+                                {{ getPeerLabel(peer, index) }}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            class="h-7 shrink-0 cursor-pointer rounded border border-sky-200 bg-white px-2 text-xs font-semibold text-sky-700 transition-colors hover:border-sky-700 hover:bg-sky-700 hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-300"
+                            :disabled="hasPeerIssue(peer)"
+                            :title="hasPeerIssue(peer) ? '该节点配置有误，请先修正' : '复制该节点的客户端配置'"
+                            @click="copyClientConfig(peer)"
+                        >
+                            复制
+                        </button>
+                    </div>
+                    <pre
+                        v-if="isConfigSectionExpanded(`peer-${peer.id}`)"
+                        class="border-t border-gray-200 bg-gray-50/60 p-3 font-mono text-sm leading-6 whitespace-pre-wrap wrap-break-word"
+                        >{{ clientConfigs.get(peer.id) }}</pre>
+                </section>
             </div>
         </div>
 
@@ -1702,6 +1785,20 @@ const handleImportFile = async (event: Event) => {
         alert("导入失败：文件不是有效的配置包或已损坏。");
     }
 };
+
+// 右侧预览按「中继 + 每个客户端」分块，各自可折叠。
+const expandedConfigSections = reactive(new Set<string>());
+const isConfigSectionExpanded = (key: string) => expandedConfigSections.has(key);
+const toggleConfigSection = (key: string) => {
+    if (expandedConfigSections.has(key)) expandedConfigSections.delete(key);
+    else expandedConfigSections.add(key);
+};
+
+const clientConfigs = computed(() => {
+    const map = new Map<number, string>();
+    config.peers.forEach((peer) => map.set(peer.id, buildClientConfig(peer)));
+    return map;
+});
 
 const generatedConfig = computed(() => {
     let conf = `[Interface]\n`;
