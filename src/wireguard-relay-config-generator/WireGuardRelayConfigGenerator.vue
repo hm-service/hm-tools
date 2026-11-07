@@ -607,6 +607,27 @@
                                     </button>
                                 </div>
                             </div>
+
+                            <div class="col-span-2">
+                                <label class="mb-1 block text-xs font-semibold text-gray-500">
+                                    PresharedKey (预共享密钥)
+                                </label>
+                                <div class="flex items-center gap-1.5">
+                                    <input
+                                        type="text"
+                                        v-model="peer.presharedKey"
+                                        readonly
+                                        class="h-9 min-w-0 flex-1 cursor-not-allowed rounded-md border border-gray-300 box-border bg-gray-100 px-2.5 font-mono text-sm text-gray-500 transition-colors focus:outline-none"
+                                    />
+                                    <button
+                                        class="h-9 shrink-0 cursor-pointer rounded-md border border-sky-600 bg-sky-600 px-2.5 text-sm font-semibold text-white transition-colors hover:border-sky-700 hover:bg-sky-700"
+                                        type="button"
+                                        @click="copyPeerPresharedKey(peer)"
+                                    >
+                                        复制
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mt-2.5 flex justify-end gap-1.5">
@@ -759,6 +780,7 @@ interface Peer {
     name: string;
     privateKey: string;
     publicKey: string;
+    presharedKey: string;
     hostPart: number | null;
     expanded: boolean;
     showPrivateKey: boolean;
@@ -781,6 +803,7 @@ interface PeerIssue {
     invalidHostPart: number | null;
     duplicateHostPart: number | null;
     invalidKey: boolean;
+    invalidPresharedKey: boolean;
     duplicateKey: boolean;
 }
 
@@ -868,13 +891,17 @@ const normalizeSavedConfig = (savedConfig: Partial<WgConfig>): WgConfig => {
         name: typeof peer.name === "string" ? peer.name : "",
         privateKey: typeof peer.privateKey === "string" ? peer.privateKey : "",
         publicKey: typeof peer.publicKey === "string" ? peer.publicKey : "",
+        presharedKey: typeof peer.presharedKey === "string" ? peer.presharedKey : "",
         hostPart: typeof peer.hostPart === "number" && Number.isFinite(peer.hostPart) ? peer.hostPart : null,
         expanded: typeof peer.expanded === "boolean" ? peer.expanded : true,
         showPrivateKey: typeof peer.showPrivateKey === "boolean" ? peer.showPrivateKey : false,
     }));
 
     peerIdCounter = merged.peers.reduce((maxId, peer) => Math.max(maxId, peer.id + 1), 0);
-    merged.peers.forEach((peer) => ensurePeerKeyPair(peer));
+    merged.peers.forEach((peer) => {
+        ensurePeerKeyPair(peer);
+        ensurePeerPresharedKey(peer);
+    });
 
     return merged;
 };
@@ -930,6 +957,17 @@ const generatePeerKeys = (peer: Peer) => {
     peer.publicKey = encodeBase64(publicKey);
 };
 
+// PSK 是两端共享的对称密钥，和 WireGuard 的要求一致：32 字节随机数、标准 base64。
+const generatePresharedKey = (): string => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return encodeBase64(bytes);
+};
+
+const ensurePeerPresharedKey = (peer: Peer) => {
+    if (!peer.presharedKey.trim()) peer.presharedKey = generatePresharedKey();
+};
+
 const derivePeerPublicKey = (peer: Peer) => {
     if (!peer.privateKey.trim()) {
         generatePeerKeys(peer);
@@ -969,6 +1007,7 @@ const addPeer = () => {
         name: "",
         privateKey: "",
         publicKey: "",
+        presharedKey: generatePresharedKey(),
         hostPart: null,
         expanded: true,
         showPrivateKey: false,
@@ -1140,6 +1179,11 @@ const hasInvalidPeerKey = (peer: Peer): boolean => {
     return privateKey !== "" && !isValidWireGuardKey(privateKey);
 };
 
+const hasInvalidPresharedKey = (peer: Peer): boolean => {
+    const presharedKey = peer.presharedKey.trim();
+    return presharedKey !== "" && !isValidWireGuardKey(presharedKey);
+};
+
 const peerIssues = computed((): Map<number, PeerIssue> => {
     const issues = new Map<number, PeerIssue>();
     const peersByHostPart = new Map<number, Peer[]>();
@@ -1163,6 +1207,7 @@ const peerIssues = computed((): Map<number, PeerIssue> => {
             invalidHostPart: null,
             duplicateHostPart: null,
             invalidKey: false,
+            invalidPresharedKey: false,
             duplicateKey: false,
         };
         issues.set(peer.id, created);
@@ -1182,6 +1227,10 @@ const peerIssues = computed((): Map<number, PeerIssue> => {
 
         if (hasInvalidPeerKey(peer)) {
             getOrCreateIssue(peer).invalidKey = true;
+        }
+
+        if (hasInvalidPresharedKey(peer)) {
+            getOrCreateIssue(peer).invalidPresharedKey = true;
         }
 
         const publicKey = peer.publicKey.trim();
@@ -1228,6 +1277,9 @@ const getPeerIssueMessage = (peer: Peer): string => {
     if (issue.invalidKey) {
         reasons.push("密钥格式不正确");
     }
+    if (issue.invalidPresharedKey) {
+        reasons.push("预共享密钥格式不正确");
+    }
     if (issue.duplicateKey) {
         reasons.push("密钥与其它节点重复");
     }
@@ -1243,6 +1295,7 @@ const getPeerIssueLabel = (peer: Peer): string => {
 
     if (issue.missingHostPart) return "未填主机号";
     if (issue.invalidHostPart !== null) return "主机号有误";
+    if (issue.invalidKey || issue.invalidPresharedKey) return "密钥有误";
 
     return "冲突";
 };
@@ -1259,6 +1312,7 @@ const hasConfigError = computed((): boolean => configIssues.value.length > 0 || 
 const regenerateAllPeerKeys = () => {
     config.peers.forEach((peer) => {
         generatePeerKeys(peer);
+        peer.presharedKey = generatePresharedKey();
     });
 };
 
@@ -1283,6 +1337,11 @@ const copyPeerPublicKey = async (peer: Peer) => {
     ensurePeerKeyPair(peer);
     if (!peer.publicKey.trim()) return;
     await navigator.clipboard.writeText(peer.publicKey);
+};
+
+const copyPeerPresharedKey = async (peer: Peer) => {
+    ensurePeerPresharedKey(peer);
+    await navigator.clipboard.writeText(peer.presharedKey);
 };
 
 const sanitizePeerFileStem = (value: string, fallback: string): string => {
@@ -1369,6 +1428,7 @@ const buildClientConfig = (peer: Peer): string => {
             "",
             "[Peer]",
             `PublicKey = ${config.publicKey}`,
+            `PresharedKey = ${peer.presharedKey}`,
             `AllowedIPs = ${peerNetworkPrefix}.0/24`,
             // 域名或端口缺失时整行省略，不写出 `Endpoint = ` 这种半截配置。
             ...(relayEndpoint === "" ? [] : [`Endpoint = ${relayEndpoint}`]),
@@ -1459,6 +1519,7 @@ const buildRelayPeerBlock = (peer: Peer): string => {
 
     if (peer.name.trim()) lines.push(`# ${peer.name.trim()}`);
     lines.push(`PublicKey = ${publicKey}`);
+    if (peer.presharedKey.trim()) lines.push(`PresharedKey = ${peer.presharedKey.trim()}`);
     lines.push(`AllowedIPs = ${peerNetworkPrefix}.${hostPart}/32`);
 
     return `[Peer]\n${lines.join("\n")}`;
@@ -1545,6 +1606,7 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
     const wgPeerInfos = peerSections.map((section) => ({
         name: section.comments.find((comment) => !comment.startsWith("PublicKey =")) ?? "",
         publicKey: section.pairs.PublicKey?.[0] ?? "",
+        presharedKey: section.pairs.PresharedKey?.[0] ?? "",
         hostPart: getLastIpOctet(section.pairs.AllowedIPs?.[0] ?? ""),
     }));
 
@@ -1558,11 +1620,13 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
         const privateKey = clientInterface.pairs.PrivateKey?.[0] ?? "";
         if (!privateKey.trim()) continue;
 
+        const clientPeerSection = clientSections.find((section) => section.name === "Peer");
         const clientPeer: Peer = {
             id: 0,
             name: "",
             privateKey,
             publicKey: "",
+            presharedKey: clientPeerSection?.pairs.PresharedKey?.[0] ?? "",
             hostPart: getLastIpOctet(clientInterface.pairs.Address?.[0] ?? ""),
             expanded: true,
             showPrivateKey: false,
@@ -1579,6 +1643,7 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
             name: wgPeerInfo.name,
             privateKey: clientPeer?.privateKey ?? "",
             publicKey: wgPeerInfo.publicKey || clientPeer?.publicKey || "",
+            presharedKey: wgPeerInfo.presharedKey || clientPeer?.presharedKey || "",
             hostPart: wgPeerInfo.hostPart ?? clientPeer?.hostPart ?? null,
             expanded: true,
             showPrivateKey: false,
@@ -1591,6 +1656,7 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
             name: "",
             privateKey: clientPeer.privateKey,
             publicKey: clientPeer.publicKey,
+            presharedKey: clientPeer.presharedKey,
             hostPart: clientPeer.hostPart,
             expanded: true,
             showPrivateKey: false,
