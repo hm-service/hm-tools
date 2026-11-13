@@ -961,16 +961,17 @@ const FIREWALL_PRESETS: Record<Exclude<FirewallPreset, "custom">, FirewallRules>
             "nft delete table inet wg0fwd 2>/dev/null || true",
         ],
     },
+    // PostUp 先 -C 检查再 -A，PostDown 忽略删除失败，重复执行不会叠加或报错。
     iptables: {
         postUp: [
-            "iptables -A FORWARD -i %i -j ACCEPT;",
-            "iptables -A FORWARD -o %i -j ACCEPT;",
-            "iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+            "iptables -C FORWARD -i %i -j ACCEPT 2>/dev/null || iptables -A FORWARD -i %i -j ACCEPT",
+            "iptables -C FORWARD -o %i -j ACCEPT 2>/dev/null || iptables -A FORWARD -o %i -j ACCEPT",
+            "iptables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
         ],
         postDown: [
-            "iptables -D FORWARD -i %i -j ACCEPT;",
-            "iptables -D FORWARD -o %i -j ACCEPT;",
-            "iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE",
+            "iptables -D FORWARD -i %i -j ACCEPT 2>/dev/null || true",
+            "iptables -D FORWARD -o %i -j ACCEPT 2>/dev/null || true",
+            "iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || true",
         ],
     },
 };
@@ -1060,10 +1061,12 @@ const normalizeSavedConfig = (savedConfig: Partial<WgConfig>): WgConfig => {
     merged.postUp = toStringArray(savedPostUp);
     merged.postDown = toStringArray(savedPostDown);
 
-    if (!isFirewallPreset(merged.firewall)) {
-        // 旧数据没有 firewall 字段：按规则内容还原成预设，对不上就是自定义。
+    if (!isFirewallPreset(merged.firewall)) merged.firewall = "custom";
+
+    if (hasSavedRules) {
+        // 规则内容才是事实来源：对得上哪个预设就高亮哪个，对不上（例如预设改过版）就是自定义。
         merged.firewall = detectFirewallPreset(merged.postUp, merged.postDown) ?? "custom";
-    } else if (!hasSavedRules && merged.firewall !== "custom") {
+    } else if (merged.firewall !== "custom") {
         // 只有预设名、没有规则数组时按预设填充，避免选了预设却拿不到规则。
         const rules = FIREWALL_PRESETS[merged.firewall];
         merged.postUp = [...rules.postUp];
