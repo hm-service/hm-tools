@@ -194,7 +194,28 @@
                 </section>
 
                 <section class="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-                    <h3 class="text-sm font-semibold text-gray-700">路由规则</h3>
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold text-gray-700">路由规则</h3>
+                        <span class="text-xs font-semibold text-gray-400">PostUp / PostDown</span>
+                    </div>
+
+                    <div class="mt-2 grid grid-cols-4 gap-1.5">
+                        <button
+                            v-for="option in FIREWALL_PRESET_OPTIONS"
+                            :key="option.value"
+                            type="button"
+                            class="h-8 cursor-pointer rounded-md border text-sm font-semibold transition-colors"
+                            :class="
+                                config.firewall === option.value
+                                    ? 'border-sky-600 bg-sky-600 text-white'
+                                    : 'border-gray-300 bg-white text-gray-600 hover:border-gray-500 hover:text-gray-900'
+                            "
+                            :aria-pressed="config.firewall === option.value"
+                            @click="applyFirewallPreset(option.value)"
+                        >
+                            {{ option.label }}
+                        </button>
+                    </div>
 
                     <div class="mt-1.5 divide-y divide-gray-200">
                         <div class="pb-2">
@@ -263,6 +284,7 @@
                                     <input
                                         type="text"
                                         v-model="config.postUp[index]"
+                                        @input="markFirewallCustom"
                                         class="h-9 min-w-0 flex-1 rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
                                     />
                                     <button
@@ -354,6 +376,7 @@
                                     <input
                                         type="text"
                                         v-model="config.postDown[index]"
+                                        @input="markFirewallCustom"
                                         class="h-9 min-w-0 flex-1 rounded-md border border-gray-300 box-border bg-white px-2.5 font-mono text-sm transition-colors focus:border-black focus:outline-none"
                                     />
                                     <button
@@ -869,6 +892,8 @@ interface Peer {
     showPrivateKey: boolean;
 }
 
+type FirewallPreset = "custom" | "none" | "nft" | "iptables";
+
 interface WgConfig {
     host: string;
     port: number | null;
@@ -876,9 +901,15 @@ interface WgConfig {
     relayServer: string;
     privateKey: string;
     publicKey: string;
+    firewall: FirewallPreset;
     postUp: string[];
     postDown: string[];
     peers: Peer[];
+}
+
+interface FirewallRules {
+    postUp: readonly string[];
+    postDown: readonly string[];
 }
 
 interface PeerIssue {
@@ -910,6 +941,73 @@ const MAX_PORT = 65535;
 const MIN_MTU = 1280;
 const MAX_MTU = 1500;
 
+// 预设只是把规则一次性填进列表，之后仍然可以逐条修改；custom 表示完全手写。
+const FIREWALL_PRESETS: Record<Exclude<FirewallPreset, "custom">, FirewallRules> = {
+    none: { postUp: [], postDown: [] },
+    nft: {
+        postUp: [
+            "nft delete table ip wg0nat 2>/dev/null || true",
+            "nft add table ip wg0nat",
+            "nft add chain ip wg0nat post '{ type nat hook postrouting priority 100; }'",
+            'nft add rule ip wg0nat post oifname "eth0" masquerade',
+            "nft delete table inet wg0fwd 2>/dev/null || true",
+            "nft add table inet wg0fwd",
+            "nft add chain inet wg0fwd forward '{ type filter hook forward priority 0; }'",
+            'nft add rule inet wg0fwd forward iifname "wg0" accept',
+            'nft add rule inet wg0fwd forward oifname "wg0" accept',
+        ],
+        postDown: [
+            "nft delete table ip wg0nat 2>/dev/null || true",
+            "nft delete table inet wg0fwd 2>/dev/null || true",
+        ],
+    },
+    iptables: {
+        postUp: [
+            "iptables -A FORWARD -i %i -j ACCEPT;",
+            "iptables -A FORWARD -o %i -j ACCEPT;",
+            "iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+        ],
+        postDown: [
+            "iptables -D FORWARD -i %i -j ACCEPT;",
+            "iptables -D FORWARD -o %i -j ACCEPT;",
+            "iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE",
+        ],
+    },
+};
+
+const FIREWALL_PRESET_OPTIONS: ReadonlyArray<{ value: FirewallPreset; label: string }> = [
+    { value: "custom", label: "自定义" },
+    { value: "none", label: "无" },
+    { value: "nft", label: "nft" },
+    { value: "iptables", label: "iptables" },
+];
+
+const isFirewallPreset = (value: unknown): value is FirewallPreset =>
+    typeof value === "string" && FIREWALL_PRESET_OPTIONS.some((option) => option.value === value);
+
+const toStringArray = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+const normalizeRules = (rules: readonly string[]): string[] =>
+    rules.map((rule) => rule.trim()).filter((rule) => rule.length > 0);
+
+const sameRules = (a: string[], b: string[]): boolean => a.length === b.length && a.every((rule, i) => rule === b[i]);
+
+// 导入或读取旧数据时，把已有的 PostUp / PostDown 还原成预设；对不上任何预设时返回 null。
+const detectFirewallPreset = (postUp: readonly string[], postDown: readonly string[]): FirewallPreset | null => {
+    const up = normalizeRules(postUp);
+    const down = normalizeRules(postDown);
+    if (up.length === 0 && down.length === 0) return "none";
+
+    for (const preset of ["nft", "iptables"] as const) {
+        const rules = FIREWALL_PRESETS[preset];
+        if (sameRules(up, normalizeRules(rules.postUp)) && sameRules(down, normalizeRules(rules.postDown))) {
+            return preset;
+        }
+    }
+    return null;
+};
+
 const createDefaultConfig = (): WgConfig => ({
     host: "10.8.0.1",
     port: 51820,
@@ -917,16 +1015,9 @@ const createDefaultConfig = (): WgConfig => ({
     relayServer: "",
     privateKey: "",
     publicKey: "",
-    postUp: [
-        "iptables -A FORWARD -i %i -j ACCEPT;",
-        "iptables -A FORWARD -o %i -j ACCEPT;",
-        "iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
-    ],
-    postDown: [
-        "iptables -D FORWARD -i %i -j ACCEPT;",
-        "iptables -D FORWARD -o %i -j ACCEPT;",
-        "iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE",
-    ],
+    firewall: "custom",
+    postUp: [],
+    postDown: [],
     peers: [],
 });
 
@@ -962,7 +1053,22 @@ const saveConfig = () => {
 };
 
 const normalizeSavedConfig = (savedConfig: Partial<WgConfig>): WgConfig => {
-    const merged = { ...createDefaultConfig(), ...savedConfig };
+    const merged = { ...createDefaultConfig(), ...savedConfig } as WgConfig & { postUp?: unknown; postDown?: unknown };
+    const savedPostUp = merged.postUp;
+    const savedPostDown = merged.postDown;
+    const hasSavedRules = Array.isArray(savedPostUp) || Array.isArray(savedPostDown);
+    merged.postUp = toStringArray(savedPostUp);
+    merged.postDown = toStringArray(savedPostDown);
+
+    if (!isFirewallPreset(merged.firewall)) {
+        // 旧数据没有 firewall 字段：按规则内容还原成预设，对不上就是自定义。
+        merged.firewall = detectFirewallPreset(merged.postUp, merged.postDown) ?? "custom";
+    } else if (!hasSavedRules && merged.firewall !== "custom") {
+        // 只有预设名、没有规则数组时按预设填充，避免选了预设却拿不到规则。
+        const rules = FIREWALL_PRESETS[merged.firewall];
+        merged.postUp = [...rules.postUp];
+        merged.postDown = [...rules.postDown];
+    }
 
     if (typeof merged.host === "string" && merged.host.endsWith("/24")) {
         merged.host = merged.host.slice(0, -3);
@@ -1079,10 +1185,39 @@ const ensurePeerKeyPair = (peer: Peer) => {
     derivePeerPublicKey(peer);
 };
 
-const addPostUp = () => config.postUp.push("");
-const removePostUp = (index: number) => config.postUp.splice(index, 1);
-const addPostDown = () => config.postDown.push("");
-const removePostDown = (index: number) => config.postDown.splice(index, 1);
+// 选中预设会整体覆盖规则列表，之后手动改动就回到自定义。
+const applyFirewallPreset = (preset: FirewallPreset) => {
+    config.firewall = preset;
+    if (preset === "custom") return;
+
+    const rules = FIREWALL_PRESETS[preset];
+    config.postUp = [...rules.postUp];
+    config.postDown = [...rules.postDown];
+};
+
+const markFirewallCustom = () => {
+    config.firewall = "custom";
+};
+
+const addPostUp = () => {
+    config.postUp.push("");
+    markFirewallCustom();
+};
+
+const addPostDown = () => {
+    config.postDown.push("");
+    markFirewallCustom();
+};
+
+const removePostUp = (index: number) => {
+    config.postUp.splice(index, 1);
+    markFirewallCustom();
+};
+
+const removePostDown = (index: number) => {
+    config.postDown.splice(index, 1);
+    markFirewallCustom();
+};
 
 const addPeer = () => {
     const peer: Peer = {
@@ -1676,13 +1811,17 @@ const parseImportedConfigZip = async (zip: JSZip): Promise<Partial<WgConfig> | n
     if (interfaceSection) {
         const pairs = interfaceSection.pairs;
         const address = pairs.Address?.[0] ?? "";
+        const postUp = pairs.PostUp ?? [];
+        const postDown = pairs.PostDown ?? [];
 
         if (address) imported.host = getHostBase(address);
         imported.port = parseOptionalInt(pairs.ListenPort?.[0]);
         imported.mtu = parseOptionalInt(pairs.MTU?.[0]);
         imported.privateKey = pairs.PrivateKey?.[0] ?? "";
-        imported.postUp = pairs.PostUp ?? [];
-        imported.postDown = pairs.PostDown ?? [];
+        imported.postUp = postUp;
+        imported.postDown = postDown;
+        // 规则内容对得上哪个预设就高亮哪个，对不上就是自定义。
+        imported.firewall = detectFirewallPreset(postUp, postDown) ?? "custom";
         imported.relayServer = interfaceSection.comments.find((comment) => !comment.startsWith("PublicKey =")) ?? "";
     }
 
@@ -1762,13 +1901,13 @@ const handleImportFile = async (event: Event) => {
 
     try {
         const zip = await JSZip.loadAsync(file);
-        const importedConfig = await parseImportedConfigZip(zip);
-        if (!importedConfig) {
+        const imported = await parseImportedConfigZip(zip);
+        if (!imported) {
             alert("导入失败：压缩包中未找到 wg0.conf，无法识别为配置包。");
             return;
         }
 
-        const normalized = normalizeSavedConfig(importedConfig);
+        const normalized = normalizeSavedConfig(imported);
         Object.assign(config, normalized);
         config.peers.forEach((peer) => {
             peer.expanded = false;
@@ -1836,8 +1975,14 @@ onMounted(async () => {
 
     // 列表容器用 v-show 折叠，始终留在 DOM 里，所以这里初始化一次就够了。
     await nextTick();
-    createSortableList(postUpListRef.value, (from, to) => moveItem(config.postUp, from, to));
-    createSortableList(postDownListRef.value, (from, to) => moveItem(config.postDown, from, to));
+    createSortableList(postUpListRef.value, (from, to) => {
+        moveItem(config.postUp, from, to);
+        markFirewallCustom();
+    });
+    createSortableList(postDownListRef.value, (from, to) => {
+        moveItem(config.postDown, from, to);
+        markFirewallCustom();
+    });
     createSortableList(peerListRef.value, (from, to) => moveItem(config.peers, from, to));
 });
 
